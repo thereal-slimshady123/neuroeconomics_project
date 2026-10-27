@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>15 Days of Payday: Financial Decision Game</title>
+  <meta name="description" content="An interactive neuroeconomics experiment measuring risk, ambiguity, and financial safety preferences among students and IT professionals.">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🪙</text></svg>">
+</head>
+<body>
+
+  <!-- Top App Navigation / Status Bar -->
+  <header class="app-header">
+    <div class="brand-logo">
+      <span class="brand-icon">🏛️</span>
+      <div>
+        <h1 class="brand-title">15 DAYS OF PAYDAY</h1>
+        <div class="brand-subtitle">Neuroeconomics Behavioral Study v2.0</div>
+      </div>
+    </div>
+    <div id="sessionIndicator" class="badge badge-primary">
+      ID: <span id="displaySubjId">SESSION</span>
+    </div>
+  </header>
+
+  <!-- Animated 2D Pixel-Art City Canvas -->
+  <section class="world-viewport">
+    <div class="canvas-frame">
+      <canvas id="worldCanvas"></canvas>
+    </div>
+  </section>
+
+  <!-- Interactive Experiment HUD / Cards Container -->
+  <main id="gameContainer" class="main-layout" role="main">
+    <!-- Rendered dynamically by js/game.js -->
+  </main>
+
+  <!-- Core Game & Experiment Scripts -->
+  <script src="js/config.js"></script>
+  <script src="js/sprites.js"></script>
+  <script src="js/scenarios.js"></script>
+  <script src="js/world.js"></script>
+  <script src="js/game.js"></script>
+
+  <script>
+    // Show dynamic participant ID in the navbar
+    window.addEventListener("DOMContentLoaded", () => {
+      setTimeout(() => {
+        if (window.app && window.app.participantId) {
+          const el = document.getElementById("displaySubjId");
+          if (el) el.innerText = window.app.participantId;
+        }
+      }, 100);
+    });
+  </script>
+</body>
+</html>
