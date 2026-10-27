@@ -95,7 +95,7 @@ $$AS = 100 \times \frac{n_C}{n_B + n_C}$$
 | **Day 3** | Gain | +300 | +250 | **−50** | **Detects pure risk seeking** |
 | **Day 4** | Gain/Mixed | +150 | +216 | **+66** | Small risk premium |
 | **Day 5** | Gain (Urn) | +300 | +400 | **+100** | **Clean Ellsberg Pair (color pre-chosen)** |
-| **Day 6** | Gain/Mixed | +600 | +450 | **−150** | **Detects pure risk seeking** |
+| **Day 6** | Gain/Mixed | +993 | +800 | **−193** | **Detects pure risk seeking** |
 | **Day 7** | Loss | −200 | −200 | **0** | Fair insurance (loss domain) |
 | **Day 8** | Crash | — | — | — | **Exogenous Crisis Reaction (Sell/Hold/Buy)** |
 | **Day 9** | Gain/Mixed | +240 | +440 | **+200** | Large risk premium |

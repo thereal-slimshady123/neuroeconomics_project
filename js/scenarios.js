@@ -58,7 +58,7 @@ const EXPERIMENT_DATA = {
       { id: "S1", label: "Predictability: How predictable is the amount of money you receive each month?", type: "select", options: ["1 = Very unpredictable", "2 = Somewhat unpredictable", "3 = Neither", "4 = Fairly predictable", "5 = Fully predictable"] },
       { id: "S2", label: "Recent Gaps: In the last 6 months, in how many months was your money late, missing, or noticeably lower than expected?", type: "number", min: 0, max: 6, placeholder: "0 to 6 months" },
       { id: "S3", label: "Liquid Runway: If your income stopped today, for how many months could your own personal savings cover your essential living expenses?", type: "number", min: 0, max: 120, step: 0.5, placeholder: "Number of months (enter 0 if none)" },
-      { id: "S4", label: "Support Backstop: If your income stopped today, could family or relatives cover your essential expenses?", type: "select", options: ["No (0)", "Partly, under 3 months (0.33)", "Mostly, 3+ months (0.67)", "Fully, 3+ months (1.0)"] }
+      { id: "S4", label: "Support Backstop: If your income stopped today, could family or relatives cover your essential expenses?", type: "select", options: ["No", "Partly, under 3 months", "Mostly, 3+ months", "Fully, 3+ months"] }
     ],
 
     financialResponsibility: [
@@ -173,12 +173,12 @@ const EXPERIMENT_DATA = {
       buildingType: "tech",
       context: "You have 5,000 credits to place into a venture for 6 days.",
       options: {
-        A: { badge: "Sure Outcome", text: "+600 credits for sure.", tag: "Safe" },
-        B: { badge: "Stated Chances", text: "60% chance: +1,250 credits.\n40% chance: −750 credits.", tag: "Known Risk" },
-        C: { badge: "Unstated Chances", text: "+1,250 credits or −750 credits.\nChance of +1,250: not stated.", tag: "Ambiguous" }
+        A: { badge: "Sure Outcome", text: "+993 credits for sure.", tag: "Safe" },
+        B: { badge: "Stated Chances", text: "60% chance: +2,000 credits.\n40% chance: −1,000 credits.", tag: "Known Risk" },
+        C: { badge: "Unstated Chances", text: "+2,000 credits or −1,000 credits.\nChance of +2,000: not stated.", tag: "Ambiguous" }
       },
       hasBeliefProbe: false,
-      evDiff: "EV(B) - EV(A) = -150 (Detects Pure Risk Seeking)"
+      evDiff: "EV(B) - EV(A) = -193 (Detects Pure Risk Seeking)"
     },
     {
       day: 7,
@@ -241,7 +241,7 @@ const EXPERIMENT_DATA = {
       title: "Achievement Bonus",
       location: "Civic Hall Auditorium",
       buildingType: "civic",
-      context: "You win an achievement grant. All options below pay out at the exact same time (at the end of Day 13).",
+      context: "You have won an achievement grant. Choose how your award is paid out.",
       options: {
         A: { badge: "Sure Outcome", text: "Receive 2,500 credits for sure.", tag: "Safe" },
         B: { badge: "Stated Chances", text: "50% chance: 4,500 credits.\n50% chance: 1,000 credits.", tag: "Known Risk" },
@@ -281,8 +281,8 @@ const EXPERIMENT_DATA = {
     },
     {
       day: 14,
-      title: "Overnight Long Shot (Lottery Domain)",
-      location: "Neon Night Arcade & Exchange",
+      title: "Speculation Club (Lottery Domain)",
+      location: "Neon Night Arcade & Exchange at the Speculation Club",
       buildingType: "arcade",
       context: "You have 4,000 credits available to place overnight.",
       options: {
@@ -296,7 +296,7 @@ const EXPERIMENT_DATA = {
     {
       day: 15,
       title: "Final Settlement Proposition",
-      location: "Executive Settlement Penthouse",
+      location: "Payday!",
       buildingType: "penthouse",
       context: "Your final wealth for this game is benchmarked at 10,000 credits. You may keep it or make one final mixed gamble before settlement.",
       options: {

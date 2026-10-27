@@ -229,9 +229,9 @@ For each row, choose **Option X** or **Option Y**. The chance of the higher priz
 
 | Option | Outcome |
 | :--- | :--- |
-| **A** | **+600** credits for sure. |
-| **B** | **60% chance: +1,250** credits. **40% chance: −750** credits. |
-| **C** | **+1,250** credits or **−750** credits. Chance of +1,250: **not stated**. |
+| **A** | **+993** credits for sure. |
+| **B** | **60% chance: +2,000** credits. **40% chance: −1,000** credits. |
+| **C** | **+2,000** credits or **−1,000** credits. Chance of +2,000: **not stated**. |
 
 ---
 
@@ -282,7 +282,7 @@ For each row, choose **Option X** or **Option Y**. The chance of the higher priz
 ---
 
 ### Day 11: Achievement Bonus
-*You win an award. All options below pay out at the **same time** (end of Day 13).*
+*You have won an achievement grant. Choose how your award is paid out.*
 
 | Option | Outcome |
 | :--- | :--- |
