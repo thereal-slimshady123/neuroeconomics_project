@@ -33,7 +33,7 @@ class ExperimentApp {
     this.jorganDayDialogues = {
       1: "Are you risk-tolerant because you gamble, or do you gamble because you are risk-tolerant?",
       2: "Meet potential firm. Promising returns, but only in ifs and whens, but not is. Will you risk it?",
-      3: "If your heart is wavering, Johnny, do not risk your money.",
+      3: "If your heart is wavering, Johnny Joestar, do not risk your money.",
       4: "I am not taking a risk, Skyler, I AM the risk (to my own money)",
       5: "There's no such thing as free money. Just risks that you are willing to take and losses that you are willing to suffer",
       6: "What's 1000 minus 7?",
