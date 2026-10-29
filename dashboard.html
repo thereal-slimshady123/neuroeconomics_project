@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Live Results · 15 Days of Payday</title>
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  <script src="js/config.js"></script>
+  <style>
+    :root {
+      --bg: #f7f5f0; --card: #ffffff; --ink: #2b2b2b; --muted: #7a7670; --line: #e4e0d8;
+      --ok: #2ecc71; --warn: #e67e22; --bad: #e74c3c;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--ink); font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+    header { padding: 20px 24px 8px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
+    h1 { font-size: 1.4rem; margin: 0; }
+    .status { font-size: 0.9rem; color: var(--muted); }
+    .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--muted); margin-right: 6px; vertical-align: middle; }
+    .dot.live { background: var(--ok); animation: pulse 1.6s infinite; }
+    .dot.err { background: var(--bad); }
+    .dot.demo { background: var(--warn); }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+    .banner { margin: 8px 24px; padding: 10px 14px; border-radius: 8px; background: #fff4e5; color: #7a4a10; font-size: 0.9rem; }
+    .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; padding: 12px 24px; }
+    .kpi, .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; }
+    .kpi { padding: 14px 16px; }
+    .kpi .label { font-size: 0.8rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+    .kpi .value { font-size: 1.6rem; font-weight: 600; margin-top: 4px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; padding: 8px 24px 32px; }
+    .card { padding: 12px 14px 6px; }
+    .card h2 { font-size: 0.95rem; margin: 2px 4px 4px; font-weight: 600; }
+    .card .plot { height: 320px; }
+    .wide { grid-column: 1 / -1; }
+    .wide .plot { height: 360px; }
+    #gate { position: fixed; inset: 0; background: rgba(0,0,0,0.35); display: none; align-items: center; justify-content: center; padding: 16px; }
+    #gate form { background: var(--card); padding: 22px; border-radius: 12px; width: min(380px, 100%); display: grid; gap: 10px; }
+    #gate input { padding: 10px; font-size: 1rem; border: 1px solid var(--line); border-radius: 8px; }
+    #gate button { padding: 10px; font-size: 1rem; border: 0; border-radius: 8px; background: var(--ink); color: #fff; cursor: pointer; }
+    #gate .hint { font-size: 0.85rem; color: var(--muted); margin: 0; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>15 Days of Payday · Live Results</h1>
+    <div class="status"><span class="dot" id="dot"></span><span id="statusText">Connecting…</span></div>
+  </header>
+
+  <div id="demoBanner" class="banner" style="display:none">
+    Demo data: no webhook is set in <code>js/config.js</code>, so these charts show random numbers to check the layout.
+  </div>
+
+  <section class="kpis">
+    <div class="kpi"><div class="label">Responses</div><div class="value" id="kN">–</div></div>
+    <div class="kpi"><div class="label">Students</div><div class="value" id="kStud">–</div></div>
+    <div class="kpi"><div class="label">Mean GP</div><div class="value" id="kGP">–</div></div>
+    <div class="kpi"><div class="label">Mean AS</div><div class="value" id="kAS">–</div></div>
+    <div class="kpi"><div class="label">Mean S</div><div class="value" id="kS">–</div></div>
+    <div class="kpi"><div class="label">Mean R</div><div class="value" id="kR">–</div></div>
+  </section>
+
+  <section class="grid">
+    <div class="card"><h2>Income stability vs. financial responsibility</h2><div class="plot" id="pSR"></div></div>
+    <div class="card"><h2>Gamble propensity (GP) by cohort</h2><div class="plot" id="pGP"></div></div>
+    <div class="card wide"><h2>Choice mix by day (A = safe, B = known risk, C = ambiguous)</h2><div class="plot" id="pDays"></div></div>
+    <div class="card"><h2>Holt-Laury safe choices (of 10)</h2><div class="plot" id="pHL"></div></div>
+    <div class="card"><h2>Day 8 crash reaction</h2><div class="plot" id="pCrash"></div></div>
+    <div class="card"><h2>Ellsberg urn token</h2><div class="plot" id="pEll"></div></div>
+    <div class="card"><h2>Median response time per day (seconds)</h2><div class="plot" id="pRT"></div></div>
+  </section>
+
+  <div id="gate">
+    <form id="gateForm">
+      <h2 style="margin:0;font-size:1.1rem">Enter read key</h2>
+      <p class="hint">The key is kept for this browser tab only. It is not stored in the repository.</p>
+      <input type="password" id="gateKey" placeholder="Read key" autocomplete="off" required>
+      <button type="submit">Open dashboard</button>
+    </form>
+  </div>
+
+  <script src="js/dashboard.js"></script>
+</body>
+</html>

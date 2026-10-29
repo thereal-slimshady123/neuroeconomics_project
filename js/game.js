@@ -1441,10 +1441,12 @@ class ExperimentApp {
     } catch (e) { console.warn("localStorage save failed:", e); }
 
     if (CONFIG.WEBHOOK_URL?.trim()) {
+      // text/plain keeps the request CORS-safelisted, which no-cors requires.
+      // application/json would be rejected by the browser before it is sent.
       fetch(CONFIG.WEBHOOK_URL, {
         method: "POST", mode: "no-cors",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(flat)
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ ...flat, token: CONFIG.WRITE_TOKEN })
       }).then(() => console.log("Data transmitted to webhook"))
         .catch(e => console.error("Webhook error:", e));
     }

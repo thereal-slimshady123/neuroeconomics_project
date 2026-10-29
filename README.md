@@ -41,23 +41,33 @@ This web app turns the 15-day neuroeconomics study into an interactive 2D retro-
 
 ---
 
-## 📊 Connecting Your Excel / Google Sheets Webhook
+## 📊 Live Data Pipeline (Google Sheets + Live Dashboard)
 
-When you have your webhook link (from Google Apps Script, PowerAutomate, or SheetDB):
+Each completed response is appended as a row to a Google Sheet, and `dashboard.html` polls that sheet every 5 seconds and redraws the charts.
 
-1. Open `js/config.js`.
-2. Paste your webhook URL into `WEBHOOK_URL`:
-   ```javascript
-   const CONFIG = {
-     WEBHOOK_URL: "https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec",
-     ...
-   };
-   ```
-3. Commit and push:
-   ```bash
-   git commit -am "Update webhook link"
-   git push
-   ```
+### One-time setup
+1. Create a Google Sheet at [sheets.new](https://sheets.new).
+2. In the sheet: **Extensions > Apps Script**. Delete the default code and paste in the contents of `apps_script/Code.gs`.
+3. Edit the two tokens at the top of `Code.gs`:
+   - `WRITE_TOKEN` must match `WRITE_TOKEN` in `js/config.js`.
+   - `READ_KEY` is the password you type into the dashboard. Keep it private.
+4. **Deploy > New deployment > Select type: Web app**. Set *Execute as: Me* and *Who has access: Anyone*. Click **Deploy** and copy the URL ending in `/exec`.
+5. Open `js/config.js` and paste that URL into `WEBHOOK_URL`. Commit and push (see Deploying below).
+
+After any edit to `Code.gs`, run **Deploy > Manage deployments > Edit > New version**. Otherwise the change does not go live.
+
+### Viewing results live
+1. Open `https://YOUR_USERNAME.github.io/YOUR_REPO_NAME/dashboard.html`.
+2. Enter the read key. It is kept for that browser tab only.
+3. The status dot turns green when connected. New responses appear within about 5 seconds.
+
+To check the layout before any data arrives, open `dashboard.html` with `WEBHOOK_URL` empty. It shows random demo data with a banner.
+
+The raw data is also in the sheet itself, so you can use Google Sheets' own charts or Excel (**File > Download > .xlsx**) at any time.
+
+### Caveats
+- `WRITE_TOKEN` is visible in the public source, so it only stops casual junk rows. The read key is the real protection for the data.
+- The game uses `mode: "no-cors"`, so the browser cannot confirm a save. Check the sheet after a test submission.
 
 ### 💾 Automatic Backup
 Even before setting the webhook, every completed response:

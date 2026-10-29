@@ -5,7 +5,11 @@
 const CONFIG = {
   // Paste your Google Apps Script / Excel PowerAutomate Webhook URL here
   // e.g.: "https://script.google.com/macros/s/AKfycb.../exec"
-  WEBHOOK_URL: "",
+  WEBHOOK_URL: "https://script.google.com/macros/s/AKfycbwi_lroHuzpcf5eCjDAD_cA8RmGswQEvpzZGQBs4CO2df-jL2LuIaJw-7USeQB-jPZAeg/exec",
+
+  // Shared token the Apps Script checks before saving a row. Visible in the source,
+  // so it only stops casual junk submissions. Must match WRITE_TOKEN in apps_script/Code.gs.
+  WRITE_TOKEN: "change-me-write-token",
 
   // Stake scaling parameter k (default = 1.0; see questionnaire_2.md Section 7)
   STAKE_SCALE_K: 1.0,
