@@ -15,7 +15,7 @@ class ExperimentApp {
       cohort: "", age: null, gender: "", work_years: 0, invest_exp: "", risk_willingness: 3,
       FL1: "", FL2: "", FL3: "",
       S0: "", S1: 3, S2: 0, S3: 0, S4: "No",
-      P: 0, D: 0, Buffer: 0, S: 0,
+      P: 0, D: 0, Buffer: 0, S_raw: 0, S: 0,
       R1: 0, R2: 0, R3: 0, R4: 0, Dep: 0, Cash: 0, R: 0,
       C1: "", C2: "", C3: "", C4: "",
       HL_choices: [], HL_safe_count: 0,
@@ -504,6 +504,7 @@ class ExperimentApp {
             <label class="field-label">S0. Primary income source</label>
             <select class="cozy-select" id="inp_S0">
               <option value="Parental allowance" ${d.S0 === "Parental allowance" ? "selected" : ""}>Parental allowance</option>
+              <option value="Scholarship / Stipend" ${d.S0 === "Scholarship / Stipend" ? "selected" : ""}>Scholarship / Stipend</option>
               <option value="Part-time work / Freelance" ${d.S0 === "Part-time work / Freelance" ? "selected" : ""}>Part-time work / Freelance</option>
               <option value="Full-time salary" ${d.S0 === "Full-time salary" ? "selected" : ""}>Full-time salary</option>
               <option value="Other" ${d.S0 === "Other" ? "selected" : ""}>Other</option>
@@ -744,8 +745,12 @@ class ExperimentApp {
     const D = 1 - p.S2 / 6;
     const B_own = Math.min(1, p.S3 / 6);
     const Buffer = 1 - (1 - B_own) * (1 - s4Val);
-    const S = (P + D + Buffer) / 3;
-    d.P = +P.toFixed(4); d.D = +D.toFixed(4); d.Buffer = +Buffer.toFixed(4); d.S = +S.toFixed(4);
+    const S_raw = (P + D + Buffer) / 3;
+    // Cap S for students at 0.50 to reflect transitory/non-career nature of student
+    // stipends/allowances and prevent misclassification into the Unburdened IT quadrant (High S, Low R)
+    const S = (d.cohort === "Student") ? Math.min(S_raw, 0.5) : S_raw;
+    d.P = +P.toFixed(4); d.D = +D.toFixed(4); d.Buffer = +Buffer.toFixed(4);
+    d.S_raw = +S_raw.toFixed(4); d.S = +S.toFixed(4);
 
     // Financial Responsibility R
     const r1 = p.R1;
@@ -1385,7 +1390,7 @@ class ExperimentApp {
       work_years: d.work_years, invest_exp: d.invest_exp, risk_willingness: d.risk_willingness,
       FL1: d.FL1, FL2: d.FL2, FL3: d.FL3,
       S0: d.S0, S1: d.S1, S2: d.S2, S3: d.S3, S4: d.S4,
-      P: d.P, D: d.D, Buffer: d.Buffer, S: d.S,
+      P: d.P, D: d.D, Buffer: d.Buffer, S_raw: d.S_raw ?? d.S, S: d.S,
       R1: d.R1, R2: d.R2, R3: d.R3, R4: d.R4,
       Dep: d.Dep, Cash: d.Cash, R: d.R,
       C1: d.C1, C2: d.C2, C3: d.C3, C4: d.C4,
@@ -1470,7 +1475,7 @@ class ExperimentApp {
     if (!d.S2) d.S2 = 0;
     if (!d.S3) d.S3 = 2;
     if (!d.S4) d.S4 = "Yes";
-    d.P = 0.75; d.D = 1.0; d.Buffer = 0.67; d.S = 0.81;
+    d.P = 0.75; d.D = 1.0; d.Buffer = 0.67; d.S_raw = 0.81; d.S = 0.5;
     d.R1 = 0; d.R2 = 20000; d.R3 = 6000; d.R4 = 0;
     d.Dep = 0; d.Cash = 0.3; d.R = 0.15;
     d.C1 = "Yes"; d.C2 = "No"; d.C3 = "No (days are independent)"; d.C4 = "Sometimes";

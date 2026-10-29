@@ -87,9 +87,13 @@ $$P = \frac{S1 - 1}{4} \qquad D = 1 - \frac{S2}{6} \qquad B_{own} = \min\left(1,
 
 $$\text{Buffer} = 1 - (1 - B_{own})(1 - B_{back})$$
 
-$$S = \frac{P + D + \text{Buffer}}{3} \qquad S \in [0, 1]$$
+$$S_{raw} = \frac{P + D + \text{Buffer}}{3} \qquad S_{raw} \in [0, 1]$$
 
-Report P, D, and Buffer separately as well.
+$$S = \begin{cases} \min(S_{raw}, 0.50) & \text{if Cohort} = \text{Student} \\ S_{raw} & \text{if Cohort} = \text{IT Professional} \end{cases}$$
+
+*Student Income Stability Cap:* Student income (whether from stipends, fellowships, or parental allowances) is transitory, degree-contingent, and non-equity generating. Capping student $S$ at $0.50$ prevents students on regular monthly stipends from scoring $S \ge 0.65$ and being misclassified into the "High S, Low R (Unburdened IT)" quadrant, correctly anchoring them in the "Low S, Low R (Supported Student)" quadrant. Report P, D, Buffer, and S_raw separately as well.
+
+
 
 ---
 

@@ -49,7 +49,13 @@ def compute_intake_scores(df):
     b_own = (df["S3"] / 6.0).clip(0.0, 1.0)
     b_back = df["S4"].clip(0.0, 1.0)
     df["Buffer"] = 1.0 - (1.0 - b_own) * (1.0 - b_back)
-    df["S"] = (df["P"] + df["D"] + df["Buffer"]) / 3.0
+    raw_s = (df["P"] + df["D"] + df["Buffer"]) / 3.0
+    df["S_raw"] = raw_s
+
+    # Cap S for students at 0.50 to reflect the transitory/non-career nature of student
+    # income (stipends/allowances) and prevent misclassification into "High S, Low R (Unburdened IT)".
+    is_student = df["Cohort"].astype(str).str.strip().str.lower().str.contains("student")
+    df["S"] = np.where(is_student, np.minimum(raw_s, 0.5), raw_s)
     
     # R: Financial Responsibility
     df["Dep"] = (df["R1"] / 3.0).clip(0.0, 1.0)
@@ -130,14 +136,24 @@ def cohort_ambiguity_test(df):
     u, p = stats.mannwhitneyu(it_as, student_as, alternative="two-sided")
     return u, p, cliffs_delta(it_as, student_as)
 
+def chi2_with_cramers_v(ct):
+    """Chi-square test of independence with Cramer's V. Returns NaNs when the table cannot be tested."""
+    ct = ct.loc[ct.sum(axis=1) > 0, ct.sum(axis=0) > 0]
+    if min(ct.shape) < 2:
+        return np.nan, np.nan, np.nan
+    try:
+        chi2, p, dof, _ = stats.chi2_contingency(ct)
+    except ValueError:  # expected counts contain a zero, so the approximation is undefined
+        return np.nan, np.nan, np.nan
+    n = ct.values.sum()
+    cramers_v = np.sqrt(chi2 / (n * (min(ct.shape) - 1)))
+    return chi2, p, cramers_v
+
 def cohort_crash_test(df):
     """H3: Chi-square of Crash Reaction by Cohort, with Cramer's V."""
     categories = ["Sell", "Hold", "Buy more"]
     ct = pd.crosstab(df["Cohort"], df["Crash_Reaction"]).reindex(columns=categories, fill_value=0)
-    chi2, p, dof, _ = stats.chi2_contingency(ct)
-    n = ct.values.sum()
-    cramers_v = np.sqrt(chi2 / (n * (min(ct.shape) - 1))) if n > 0 else 0.0
-    return chi2, p, cramers_v
+    return chi2_with_cramers_v(ct)
 
 def add_confidence_ellipse(ax, x, y, color):
     """95% covariance ellipse (chi-square, 2 dof) around a group's (x, y) points."""
@@ -259,9 +275,7 @@ def plot_fig3_crash_reaction(df, filename="fig3_crash_reaction.png"):
     ct_raw = pd.crosstab(df["SR_Quadrant"], df["Crash_Reaction"]).reindex(index=order, columns=categories, fill_value=0)
     ct_pct = ct_raw.div(ct_raw.sum(axis=1), axis=0) * 100
     
-    chi2, p, dof, _ = stats.chi2_contingency(ct_raw)
-    n = ct_raw.values.sum()
-    cramers_v = np.sqrt(chi2 / (n * (min(ct_raw.shape) - 1))) if n > 0 else 0.0
+    chi2, p, cramers_v = chi2_with_cramers_v(ct_raw)
     
     colors = ["#E74C3C", "#7F8C8D", "#27AE60"] # Sell (Red), Hold (Gray), Buy (Green)
     ct_pct.plot(kind="bar", stacked=True, color=colors, ax=ax, edgecolor="white", width=0.55)
@@ -341,17 +355,27 @@ def simulate_v2_data(n=120):
                 s2 = np.random.choice([2, 3, 4], p=[0.3, 0.5, 0.2])
                 s3 = np.random.uniform(0.1, 0.8)
                 s4 = np.random.choice([0.0, 0.33], p=[0.8, 0.2]) # Low family backstop
+                s0_val = "Part-time work / Freelance"
                 
                 r1 = np.random.choice([0, 1], p=[0.8, 0.2])
                 r2 = np.random.uniform(8000, 18000)
                 r3 = np.random.uniform(7000, 16000) # High essential living costs
                 r4 = np.random.choice([0, 2000], p=[0.6, 0.4])
             else:
-                # Supported Student: modest predictability, family backstop, minimal living costs paid personally
-                s1 = np.random.choice([1, 2, 3], p=[0.25, 0.55, 0.20])
-                s2 = np.random.choice([1, 2, 3], p=[0.4, 0.4, 0.2])
-                s3 = np.random.uniform(0.3, 1.2)
-                s4 = np.random.choice([0.67, 1.0], p=[0.4, 0.6]) # High family backstop
+                # Supported / Stipend Student:
+                is_stipend = (np.random.rand() < 0.40)
+                if is_stipend:
+                    s1 = np.random.choice([4, 5], p=[0.4, 0.6]) # Regular monthly stipend
+                    s2 = 0                                       # No gaps in last 6 months
+                    s3 = np.random.uniform(0.8, 2.5)
+                    s4 = np.random.choice([0.67, 1.0], p=[0.3, 0.7])
+                    s0_val = "Scholarship / Stipend"
+                else:
+                    s1 = np.random.choice([1, 2, 3], p=[0.25, 0.55, 0.20])
+                    s2 = np.random.choice([1, 2, 3], p=[0.4, 0.4, 0.2])
+                    s3 = np.random.uniform(0.3, 1.2)
+                    s4 = np.random.choice([0.67, 1.0], p=[0.4, 0.6]) # High family backstop
+                    s0_val = "Parental allowance"
                 
                 r1 = 0
                 r2 = np.random.uniform(10000, 25000)
@@ -359,6 +383,7 @@ def simulate_v2_data(n=120):
                 r4 = 0
         else: # IT Professional
             # 55% unburdened early IT (low R), 45% committed IT with loans/dependents (high R)
+            s0_val = "Full-time salary"
             is_committed = (np.random.rand() < 0.45)
             if is_committed:
                 # Committed IT: High steady salary, 3-6 months savings, but heavy EMIs & family dependents
@@ -389,7 +414,9 @@ def simulate_v2_data(n=120):
         b_own_val = min(1.0, s3 / 6.0)
         b_back_val = s4
         buffer_val = 1.0 - (1.0 - b_own_val) * (1.0 - b_back_val)
-        s_indiv = (p_comp + d_comp + buffer_val) / 3.0
+        raw_s_indiv = (p_comp + d_comp + buffer_val) / 3.0
+        # Cap S for students at 0.50 to reflect non-career income stability
+        s_indiv = min(raw_s_indiv, 0.5) if c == "Student" else raw_s_indiv
         
         dep_val = min(1.0, r1 / 3.0)
         cash_ratio_val = min(1.0, (r3 + r4) / max(1.0, r2))
@@ -399,7 +426,7 @@ def simulate_v2_data(n=120):
             "id": i + 1, "Cohort": c, "age": age, "gender": gender,
             "work_years": work_years, "invest_exp": invest_exp, "risk_willingness": risk_will,
             "FL1": fl1, "FL2": fl2, "FL3": fl3,
-            "S0": "Allowance" if c == "Student" else "Salary",
+            "S0": s0_val,
             "S1": s1, "S2": s2, "S3": s3, "S4": s4,
             "R1": r1, "R2": r2, "R3": r3, "R4": r4,
         }
@@ -548,12 +575,18 @@ def run_hypothesis_tests(df):
     print(f"  H1 Stability -> GP (OLS): beta = {lr.slope:+.2f}, p = {lr.pvalue:.4e} -> {'supported' if h1_ok else 'not supported'}")
 
     u, p_u, delta = cohort_ambiguity_test(df)
-    h2_ok = p_u < 0.05 and delta > 0
-    print(f"  H2 Cohort -> AS (Mann-Whitney U, IT vs. Student): U = {u:.0f}, p = {p_u:.4e}, Cliff's delta = {delta:+.3f} -> {'supported' if h2_ok else 'not supported'}")
+    if np.isnan(p_u):
+        print("  H2 Cohort -> AS: not computable (one cohort has no complete responses yet)")
+    else:
+        h2_ok = p_u < 0.05 and delta > 0
+        print(f"  H2 Cohort -> AS (Mann-Whitney U, IT vs. Student): U = {u:.0f}, p = {p_u:.4e}, Cliff's delta = {delta:+.3f} -> {'supported' if h2_ok else 'not supported'}")
 
     chi2, p_chi, v = cohort_crash_test(df)
-    print(f"  H3 Cohort -> Crash Reaction (chi-square): chi2 = {chi2:.2f}, p = {p_chi:.4e}, Cramer's V = {v:.2f}")
-    print("      (Chi-square approximation: some cells may be small, so treat p as indicative.)")
+    if np.isnan(p_chi):
+        print("  H3 Cohort -> Crash Reaction: not computable (crash table too sparse for chi-square)")
+    else:
+        print(f"  H3 Cohort -> Crash Reaction (chi-square): chi2 = {chi2:.2f}, p = {p_chi:.4e}, Cramer's V = {v:.2f}")
+        print("      (Chi-square approximation: some cells may be small, so treat p as indicative.)")
 
     r_hl, p_hl = stats.pearsonr(df["HL_Safe_Count"], df["GP"])
     val_ok = r_hl < -0.30 and p_hl < 0.001

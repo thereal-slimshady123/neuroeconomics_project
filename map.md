@@ -22,7 +22,9 @@ Derived from four specific items (S1 to S4) measuring cash flow predictability, 
    $$B_{own} = \min\left(1.0, \frac{S3}{6.0}\right) \qquad B_{back} = \text{S4 score} \in \{0.0, 0.33, 0.67, 1.0\}$$
    $$\text{Buffer} = 1 - (1 - B_{own})(1 - B_{back}) \in [0.0, 1.0]$$
 4. **Composite Income Stability ($S$):**
-   $$S = \frac{P + D + \text{Buffer}}{3} \in [0.0, 1.0]$$
+   $$S_{raw} = \frac{P + D + \text{Buffer}}{3} \in [0.0, 1.0]$$
+   $$S = \begin{cases} \min(S_{raw}, 0.50) & \text{if Cohort} = \text{Student} \\ S_{raw} & \text{if Cohort} = \text{IT Professional} \end{cases}$$
+   *Student Stability Ceiling:* Student inflows (stipends/scholarships/allowances) lack permanent career tenure and equity accumulation. Capping student $S$ at $0.50$ prevents stipend recipients from crossing $s\_threshold = 0.65$, preserving clean separation between "Low S, Low R (Supported Student)" and "High S, Low R (Unburdened IT)".
 
 ---
 
