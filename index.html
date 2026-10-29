@@ -148,10 +148,20 @@
     })();
 
     // Toggle Presentation Dock
+    const SKIP_STAGES_PASSWORD = 'jorgan_dealer123';
+
     function togglePresentationDock() {
       const dock = document.getElementById('presentationDock');
       const launcher = document.getElementById('presentationLauncher');
       if (dock && launcher) {
+        // Opening the dock requires the password; closing it does not.
+        if (!dock.classList.contains('active')) {
+          const entered = window.prompt('Enter the password to use Skip Stages:');
+          if (entered !== SKIP_STAGES_PASSWORD) {
+            if (entered !== null) alert('Incorrect password.');
+            return;
+          }
+        }
         dock.classList.toggle('active');
         launcher.classList.toggle('hidden', dock.classList.contains('active'));
       }

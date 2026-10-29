@@ -604,7 +604,7 @@ class ExperimentApp {
               <button type="button" class="quiz-pill-btn ${d.FL1 === 'More than ₹1,200' ? 'selected' : ''}" onclick="app.pickStepQuiz('FL1','More than ₹1,200',this)">More than ₹1,200</button>
               <button type="button" class="quiz-pill-btn ${d.FL1 === 'Exactly ₹1,200' ? 'selected' : ''}" onclick="app.pickStepQuiz('FL1','Exactly ₹1,200',this)">Exactly ₹1,200</button>
               <button type="button" class="quiz-pill-btn ${d.FL1 === 'Less than ₹1,200' ? 'selected' : ''}" onclick="app.pickStepQuiz('FL1','Less than ₹1,200',this)">Less than ₹1,200</button>
-              <button type="button" class="quiz-pill-btn quiz-pill-dont-know ${d.FL1 === 'Don\'t know' ? 'selected' : ''}" onclick="app.pickStepQuiz('FL1','Don\'t know',this)">Don't know</button>
+              <button type="button" class="quiz-pill-btn quiz-pill-dont-know ${d.FL1 === 'Don\'t know' ? 'selected' : ''}" onclick="app.pickStepQuiz('FL1','Don\\'t know',this)">Don't know</button>
             </div>
           </div>
 
@@ -614,7 +614,7 @@ class ExperimentApp {
               <button type="button" class="quiz-pill-btn ${d.FL2 === 'More than today' ? 'selected' : ''}" onclick="app.pickStepQuiz('FL2','More than today',this)">More than today</button>
               <button type="button" class="quiz-pill-btn ${d.FL2 === 'Exactly the same' ? 'selected' : ''}" onclick="app.pickStepQuiz('FL2','Exactly the same',this)">Exactly the same</button>
               <button type="button" class="quiz-pill-btn ${d.FL2 === 'Less than today' ? 'selected' : ''}" onclick="app.pickStepQuiz('FL2','Less than today',this)">Less than today</button>
-              <button type="button" class="quiz-pill-btn quiz-pill-dont-know ${d.FL2 === 'Don\'t know' ? 'selected' : ''}" onclick="app.pickStepQuiz('FL2','Don\'t know',this)">Don't know</button>
+              <button type="button" class="quiz-pill-btn quiz-pill-dont-know ${d.FL2 === 'Don\'t know' ? 'selected' : ''}" onclick="app.pickStepQuiz('FL2','Don\\'t know',this)">Don't know</button>
             </div>
           </div>
 
@@ -623,7 +623,7 @@ class ExperimentApp {
             <div class="quiz-pill-row" id="FL3_opts">
               <button type="button" class="quiz-pill-btn ${d.FL3 === 'True' ? 'selected' : ''}" onclick="app.pickStepQuiz('FL3','True',this)">True</button>
               <button type="button" class="quiz-pill-btn ${d.FL3 === 'False' ? 'selected' : ''}" onclick="app.pickStepQuiz('FL3','False',this)">False</button>
-              <button type="button" class="quiz-pill-btn quiz-pill-dont-know ${d.FL3 === 'Don\'t know' ? 'selected' : ''}" onclick="app.pickStepQuiz('FL3','Don\'t know',this)">Don't know</button>
+              <button type="button" class="quiz-pill-btn quiz-pill-dont-know ${d.FL3 === 'Don\'t know' ? 'selected' : ''}" onclick="app.pickStepQuiz('FL3','Don\\'t know',this)">Don't know</button>
             </div>
           </div>
         </div>
@@ -654,7 +654,7 @@ class ExperimentApp {
             <div class="quiz-pill-row" id="C1_opts">
               <button type="button" class="quiz-pill-btn ${d.C1 === 'Yes' ? 'selected' : ''}" onclick="app.pickStepComp('C1','Yes',this)">Yes</button>
               <button type="button" class="quiz-pill-btn ${d.C1 === 'No' ? 'selected' : ''}" onclick="app.pickStepComp('C1','No',this)">No</button>
-              <button type="button" class="quiz-pill-btn quiz-pill-dont-know ${d.C1 === 'Don\'t know' ? 'selected' : ''}" onclick="app.pickStepComp('C1','Don\'t know',this)">Don't know</button>
+              <button type="button" class="quiz-pill-btn quiz-pill-dont-know ${d.C1 === 'Don\'t know' ? 'selected' : ''}" onclick="app.pickStepComp('C1','Don\\'t know',this)">Don't know</button>
             </div>
           </div>
 
@@ -663,7 +663,7 @@ class ExperimentApp {
             <div class="quiz-pill-row" id="C2_opts">
               <button type="button" class="quiz-pill-btn ${d.C2 === 'Yes' ? 'selected' : ''}" onclick="app.pickStepComp('C2','Yes',this)">Yes</button>
               <button type="button" class="quiz-pill-btn ${d.C2 === 'No' ? 'selected' : ''}" onclick="app.pickStepComp('C2','No',this)">No</button>
-              <button type="button" class="quiz-pill-btn quiz-pill-dont-know ${d.C2 === 'Don\'t know' ? 'selected' : ''}" onclick="app.pickStepComp('C2','Don\'t know',this)">Don't know</button>
+              <button type="button" class="quiz-pill-btn quiz-pill-dont-know ${d.C2 === 'Don\'t know' ? 'selected' : ''}" onclick="app.pickStepComp('C2','Don\\'t know',this)">Don't know</button>
             </div>
           </div>
 
@@ -672,7 +672,7 @@ class ExperimentApp {
             <div class="quiz-pill-row" id="C3_opts">
               <button type="button" class="quiz-pill-btn ${d.C3 === 'Yes' ? 'selected' : ''}" onclick="app.pickStepComp('C3','Yes',this)">Yes</button>
               <button type="button" class="quiz-pill-btn ${d.C3 === 'No (days are independent)' ? 'selected' : ''}" onclick="app.pickStepComp('C3','No (days are independent)',this)">No (days are independent)</button>
-              <button type="button" class="quiz-pill-btn quiz-pill-dont-know ${d.C3 === 'Don\'t know' ? 'selected' : ''}" onclick="app.pickStepComp('C3','Don\'t know',this)">Don't know</button>
+              <button type="button" class="quiz-pill-btn quiz-pill-dont-know ${d.C3 === 'Don\'t know' ? 'selected' : ''}" onclick="app.pickStepComp('C3','Don\\'t know',this)">Don't know</button>
             </div>
           </div>
 

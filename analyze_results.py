@@ -5,6 +5,14 @@ Project: Preferences Toward Risk, Uncertainty, and Safety in Financial Decisions
 Authors: Parth Dhodapkar & Joshua Koilpillai
 """
 
+import argparse
+import json
+import os
+import re
+import urllib.parse
+import urllib.request
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -16,6 +24,8 @@ from matplotlib.patches import Ellipse
 # Set publication aesthetics
 sns.set_theme(style="whitegrid", font="DejaVu Sans")
 plt.rcParams.update({"font.size": 11, "figure.autolayout": True})
+
+PLOTS_DIR = Path(__file__).resolve().parent / "plots"
 
 # Color palette for the 4 (S, R) Quadrants
 QUADRANT_PALETTE = {
@@ -111,6 +121,35 @@ def cliffs_delta(lst1, lst2):
 # 2. QUADRANT-ALIGNED PLOTTING FUNCTIONS
 # ==========================================
 
+def cohort_ambiguity_test(df):
+    """H2: Mann-Whitney U on Ambiguity Share, IT Professionals vs. Students, with Cliff's delta."""
+    it_as = df.loc[df["Cohort"] == "IT Professional", "AS"].dropna()
+    student_as = df.loc[df["Cohort"] == "Student", "AS"].dropna()
+    if len(it_as) == 0 or len(student_as) == 0:
+        return np.nan, np.nan, np.nan
+    u, p = stats.mannwhitneyu(it_as, student_as, alternative="two-sided")
+    return u, p, cliffs_delta(it_as, student_as)
+
+def cohort_crash_test(df):
+    """H3: Chi-square of Crash Reaction by Cohort, with Cramer's V."""
+    categories = ["Sell", "Hold", "Buy more"]
+    ct = pd.crosstab(df["Cohort"], df["Crash_Reaction"]).reindex(columns=categories, fill_value=0)
+    chi2, p, dof, _ = stats.chi2_contingency(ct)
+    n = ct.values.sum()
+    cramers_v = np.sqrt(chi2 / (n * (min(ct.shape) - 1))) if n > 0 else 0.0
+    return chi2, p, cramers_v
+
+def add_confidence_ellipse(ax, x, y, color):
+    """95% covariance ellipse (chi-square, 2 dof) around a group's (x, y) points."""
+    cov = np.cov(x, y)
+    vals, vecs = np.linalg.eigh(cov)
+    order = vals.argsort()[::-1]
+    vals, vecs = vals[order], vecs[:, order]
+    angle = np.degrees(np.arctan2(vecs[1, 0], vecs[0, 0]))
+    width, height = 2 * np.sqrt(vals * 5.991)
+    ax.add_patch(Ellipse(xy=(np.mean(x), np.mean(y)), width=width, height=height, angle=angle,
+                         fill=False, edgecolor=color, linewidth=2, linestyle="--", zorder=5))
+
 def plot_fig1_sr_landscape(df, filename="fig1_sr_landscape.png"):
     fig, ax = plt.subplots(figsize=(9.5, 7.5), dpi=300)
     
@@ -145,6 +184,8 @@ def plot_fig1_sr_landscape(df, filename="fig1_sr_landscape.png"):
         mean_s, mean_r = sub["S"].mean(), sub["R"].mean()
         ax.scatter(mean_s, mean_r, marker="*", s=380, color=color, edgecolor="black", lw=1.2,
                    label=f"Centroid ({mean_s:.2f}, {mean_r:.2f})", zorder=6)
+        if len(sub) >= 3:
+            add_confidence_ellipse(ax, sub["S"], sub["R"], color)
 
     # Fitted Logistic Boundary (GP >= 50%)
     try:
@@ -191,7 +232,12 @@ def plot_fig2_ambiguity_share(df, filename="fig2_ambiguity_share.png"):
                   alpha=0.45, jitter=0.2, s=6, ax=ax)
     
     ax.axhline(50.0, color="#7F8C8D", linestyle="--", linewidth=1.5, label="Neutrality (AS = 50%)")
-    
+
+    u, p_u, delta = cohort_ambiguity_test(df)
+    ax.text(0.5, 0.97, f"Mann-Whitney U (IT vs. Student) = {u:.0f}, p = {p_u:.2e}\nCliff's delta = {delta:+.2f}",
+            transform=ax.transAxes, ha="center", va="top", fontsize=9.5,
+            bbox=dict(boxstyle="round,pad=0.4", fc="white", ec="#7F8C8D", alpha=0.9))
+
     ax.set_title("Figure 2: Ambiguity Share Across (S, R) Financial Profiles", fontsize=13, fontweight="bold")
     ax.set_ylabel("Ambiguity Share (% Gambles on Option C)", fontsize=11)
     ax.set_xlabel("Financial Profile Quadrant", fontsize=11)
@@ -414,15 +460,126 @@ def simulate_v2_data(n=120):
     return pd.DataFrame(data)
 
 # ==========================================
-# 4. EXECUTION
+# 4. REAL DATA LOADER
+# ==========================================
+
+# The game stores these answers as text (see flatRow() and submitProfile() in js/game.js).
+# The loader converts them to the numeric encoding the scoring functions expect.
+FL_CORRECT = {"FL1": "More than ₹1,200", "FL2": "Less than today", "FL3": "False"}
+S4_TEXT_TO_NUM = {"No": 0.0, "Partially": 0.5, "Yes": 1.0}
+NUMERIC_COLS = ["S1", "S2", "S3", "R1", "R2", "R3", "R4"]
+DECISION_COLS = [f"D{i}" for i in range(1, 16)]
+HL_COLS = [f"HL{i}" for i in range(1, 11)]
+
+def load_real_data(path):
+    """
+    Loads the exported Google Sheet (.xlsx or .csv) and returns a DataFrame in the same
+    schema as simulate_v2_data(), so compute_intake_scores and compute_game_metrics work on it.
+    Incomplete responses (missing scoring inputs or any decision/HL answer) are dropped.
+    """
+    path = Path(path)
+    if path.suffix.lower() in (".xlsx", ".xls"):
+        df = pd.read_excel(path)
+    elif path.suffix.lower() == ".csv":
+        df = pd.read_csv(path)
+    else:
+        raise ValueError(f"Unsupported file type: {path.suffix} (use .xlsx or .csv)")
+    return clean_responses(df, path.name)
+
+def clean_responses(df, source):
+    """Shared cleaning for file and live data: encodings, required columns, incomplete rows."""
+    df = df.rename(columns={"cohort": "Cohort"}).replace("", np.nan)
+
+    required = ["Cohort", "S4", "FL1", "FL2", "FL3"] + NUMERIC_COLS + DECISION_COLS + HL_COLS
+    missing = [c for c in required if c not in df.columns]
+    if missing:
+        raise ValueError(f"{source} is missing columns: {missing}")
+
+    n_total = len(df)
+    df["S4"] = df["S4"].map(lambda v: S4_TEXT_TO_NUM.get(str(v).strip(), v))
+    for c in NUMERIC_COLS + ["S4"]:
+        df[c] = pd.to_numeric(df[c], errors="coerce")
+    for c, correct in FL_CORRECT.items():
+        df[c] = (df[c].astype(str).str.strip() == correct).astype(int)
+
+    df = df.dropna(subset=NUMERIC_COLS + ["S4"])
+    df = df.dropna(subset=DECISION_COLS + HL_COLS)
+    print(f"Loaded {len(df)} complete responses from {source} ({n_total - len(df)} incomplete dropped).")
+    return df.reset_index(drop=True)
+
+def load_live_data():
+    """
+    Fetches every response straight from the Apps Script read endpoint (doGet in apps_script/Code.gs).
+    The URL comes from WEBHOOK_URL in js/config.js. The read key comes from the
+    NEUROECO_READ_KEY environment variable, so it never lands in the repo.
+    """
+    read_key = os.environ.get("NEUROECO_READ_KEY")
+    if not read_key:
+        raise SystemExit("Set the NEUROECO_READ_KEY environment variable to your READ_KEY from apps_script/Code.gs.")
+
+    config = (Path(__file__).resolve().parent / "js" / "config.js").read_text(encoding="utf-8")
+    match = re.search(r'WEBHOOK_URL:\s*"([^"]+)"', config)
+    if not match or not match.group(1).strip():
+        raise SystemExit("WEBHOOK_URL is empty in js/config.js.")
+
+    url = f"{match.group(1).strip()}?{urllib.parse.urlencode({'key': read_key})}"
+    with urllib.request.urlopen(url, timeout=60) as resp:
+        payload = json.loads(resp.read().decode("utf-8"))
+    if not payload.get("ok"):
+        raise SystemExit(f"Apps Script refused the request: {payload.get('error', 'unknown error')}")
+
+    df = pd.DataFrame(payload["rows"])
+    return clean_responses(df, "live Google Sheet")
+
+# ==========================================
+# 5. HYPOTHESIS TESTS
+# ==========================================
+
+def run_hypothesis_tests(df):
+    print("\n[3] Hypothesis Tests:")
+
+    r_sgp, p_sgp = stats.pearsonr(df["S"], df["GP"])
+    r_rgp, p_rgp = stats.pearsonr(df["R"], df["GP"])
+    print(f"  H1a Stability -> GP (Pearson): r = {r_sgp:+.3f}, p = {p_sgp:.4e} (Stability increases gambling)")
+    print(f"  H1b Responsibility -> GP (Pearson): r = {r_rgp:+.3f}, p = {p_rgp:.4e} (Debt/bills suppress gambling)")
+
+    lr = stats.linregress(df["S"], df["GP"])
+    h1_ok = lr.pvalue < 0.05 and lr.slope > 0
+    print(f"  H1 Stability -> GP (OLS): beta = {lr.slope:+.2f}, p = {lr.pvalue:.4e} -> {'supported' if h1_ok else 'not supported'}")
+
+    u, p_u, delta = cohort_ambiguity_test(df)
+    h2_ok = p_u < 0.05 and delta > 0
+    print(f"  H2 Cohort -> AS (Mann-Whitney U, IT vs. Student): U = {u:.0f}, p = {p_u:.4e}, Cliff's delta = {delta:+.3f} -> {'supported' if h2_ok else 'not supported'}")
+
+    chi2, p_chi, v = cohort_crash_test(df)
+    print(f"  H3 Cohort -> Crash Reaction (chi-square): chi2 = {chi2:.2f}, p = {p_chi:.4e}, Cramer's V = {v:.2f}")
+    print("      (Chi-square approximation: some cells may be small, so treat p as indicative.)")
+
+    r_hl, p_hl = stats.pearsonr(df["HL_Safe_Count"], df["GP"])
+    val_ok = r_hl < -0.30 and p_hl < 0.001
+    print(f"  External Validation (HL -> GP): r = {r_hl:+.3f}, p = {p_hl:.4e} -> {'pass' if val_ok else 'fail'} (criterion: r < -0.30, p < 0.001)")
+
+# ==========================================
+# 6. EXECUTION
 # ==========================================
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Score, test, and plot the 15 Days of Payday responses.")
+    source = parser.add_mutually_exclusive_group()
+    source.add_argument("--data", help="Exported responses (.xlsx or .csv).")
+    source.add_argument("--live", action="store_true", help="Fetch the current responses from the Google Sheet.")
+    args = parser.parse_args()
+
     print("=============================================================")
-    print("RUNNING NEUROECONOMICS STRUCTURAL SIMULATION ENGINE")
+    if args.live or args.data:
+        print("RUNNING NEUROECONOMICS ANALYSIS ON REAL DATA")
+        df = load_live_data() if args.live else load_real_data(args.data)
+        print(f"Cohort counts: {df['Cohort'].value_counts().to_dict()}")
+    else:
+        print("RUNNING NEUROECONOMICS STRUCTURAL SIMULATION ENGINE")
+        df = simulate_v2_data(n=120)
     print("=============================================================")
-    
-    df = simulate_v2_data(n=120)
+
     df = compute_intake_scores(df)
     df = compute_game_metrics(df)
     
@@ -447,18 +604,12 @@ if __name__ == "__main__":
     print("NOTE: 'GP' is Gamble Propensity (Higher = More Gambling). Expected: Q2 > Q1 >= Q3 > Q4")
     print("NOTE: 'HL Safe' is Holt-Laury Safe Choices (Higher = MORE RISK AVERSE = Less Gambling).")
     
-    print("\n[3] Hypotheses Verification:")
-    r_sgp, p_sgp = stats.pearsonr(df["S"], df["GP"])
-    r_rgp, p_rgp = stats.pearsonr(df["R"], df["GP"])
-    print(f"  * Effect of Income Stability (S -> GP): r = {r_sgp:+.3f}, p = {p_sgp:.4e} (Stability increases gambling)")
-    print(f"  * Effect of Responsibility (R -> GP):    r = {r_rgp:+.3f}, p = {p_rgp:.4e} (Debt/bills suppress gambling)")
-    
-    r_hl, p_hl = stats.pearsonr(df["HL_Safe_Count"], df["GP"])
-    print(f"  * Holt-Laury Validation (HL -> GP):       r = {r_hl:+.3f}, p = {p_hl:.4e} (Negative: High safe count = Low gambling)")
-    
-    print("\n[4] Generating High-Resolution Publication Figures...")
-    plot_fig1_sr_landscape(df)
-    plot_fig2_ambiguity_share(df)
-    plot_fig3_crash_reaction(df)
-    plot_fig4_validation_anchor(df)
+    run_hypothesis_tests(df)
+
+    print(f"\n[4] Generating High-Resolution Publication Figures in {PLOTS_DIR} ...")
+    PLOTS_DIR.mkdir(exist_ok=True)
+    plot_fig1_sr_landscape(df, PLOTS_DIR / "fig1_sr_landscape.png")
+    plot_fig2_ambiguity_share(df, PLOTS_DIR / "fig2_ambiguity_share.png")
+    plot_fig3_crash_reaction(df, PLOTS_DIR / "fig3_crash_reaction.png")
+    plot_fig4_validation_anchor(df, PLOTS_DIR / "fig4_validation_anchor.png")
     print("All 4 figures updated and saved successfully!")
