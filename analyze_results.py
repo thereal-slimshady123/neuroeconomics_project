@@ -45,7 +45,7 @@ def compute_intake_scores(df):
     """
     # S: Income Stability
     df["P"] = (df["S1"] - 1.0) / 4.0
-    df["D"] = 1.0 - (df["S2"] / 6.0)
+    df["D"] = 1.0 - (df["S2"] / 12.0)
     b_own = (df["S3"] / 6.0).clip(0.0, 1.0)
     b_back = df["S4"].clip(0.0, 1.0)
     df["Buffer"] = 1.0 - (1.0 - b_own) * (1.0 - b_back)
@@ -366,7 +366,7 @@ def simulate_v2_data(n=120):
                 is_stipend = (np.random.rand() < 0.40)
                 if is_stipend:
                     s1 = np.random.choice([4, 5], p=[0.4, 0.6]) # Regular monthly stipend
-                    s2 = 0                                       # No gaps in last 6 months
+                    s2 = 0                                       # No gaps in last 12 months
                     s3 = np.random.uniform(0.8, 2.5)
                     s4 = np.random.choice([0.67, 1.0], p=[0.3, 0.7])
                     s0_val = "Scholarship / Stipend"
@@ -410,7 +410,7 @@ def simulate_v2_data(n=120):
                 
         # Calculate individual S and R immediately to drive the structural choices
         p_comp = (s1 - 1.0) / 4.0
-        d_comp = 1.0 - (s2 / 6.0)
+        d_comp = 1.0 - (s2 / 12.0)
         b_own_val = min(1.0, s3 / 6.0)
         b_back_val = s4
         buffer_val = 1.0 - (1.0 - b_own_val) * (1.0 - b_back_val)

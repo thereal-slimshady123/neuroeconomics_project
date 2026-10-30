@@ -229,7 +229,7 @@ class ExperimentApp {
 
   renderPinkyPromise() {
     this.world.setScene("intro",
-      "Before we look at the numbers, a solemn promise. Real financial choices need raw honesty—no second-guessing, no trying to look smart.",
+      "Before we start, let's make a promise to be honest - we'd love to see your authentic input!",
       0,
       "happy"
     );
@@ -344,8 +344,9 @@ class ExperimentApp {
     } else if (step === 3) {
       if (document.getElementById("inp_S0")) d.S0 = this.fval("inp_S0");
       if (document.getElementById("inp_S1")) d.S1 = parseInt(document.getElementById("inp_S1").value, 10);
-      if (document.getElementById("inp_S2")) d.S2 = this.fnum("inp_S2");
-      if (document.getElementById("inp_S3")) d.S3 = this.fnum("inp_S3");
+      // min/max attributes don't stop typed values, so clamp to the allowed 0–12 range
+      if (document.getElementById("inp_S2")) d.S2 = Math.min(12, Math.max(0, this.fnum("inp_S2")));
+      if (document.getElementById("inp_S3")) d.S3 = Math.min(12, Math.max(0, this.fnum("inp_S3")));
     } else if (step === 4) {
       if (document.getElementById("inp_S4")) d.S4 = this.fval("inp_S4");
       if (document.getElementById("inp_R1")) d.R1 = this.fnum("inp_R1");
@@ -397,7 +398,7 @@ class ExperimentApp {
 
     if (step === 1) {
       this.world.setScene("town",
-        "Before we deploy any capital, standard compliance requires your profile. Don't worry, there are no wrong answers—be completely authentic.",
+        "Before we start, we'd like to know your profile. All details filled are completely anonymous, so rest assured.",
         0,
         "thinking"
       );
@@ -517,13 +518,13 @@ class ExperimentApp {
           </div>
 
           <div>
-            <label class="field-label">S2. Months income dropped &gt;20% in last 6 months (0–6)</label>
-            <input type="number" class="cozy-input" id="inp_S2" value="${d.S2}" min="0" max="6" />
+            <label class="field-label">S2. Months income dropped &gt;20% in last 12 months (0–12)</label>
+            <input type="number" class="cozy-input" id="inp_S2" value="${d.S2}" min="0" max="12" />
           </div>
 
           <div>
-            <label class="field-label">S3. Emergency savings buffer: Months of expenses covered (0–6)</label>
-            <input type="number" class="cozy-input" id="inp_S3" value="${d.S3}" min="0" max="6" />
+            <label class="field-label">S3. Emergency savings buffer: Months of expenses covered (0–12)</label>
+            <input type="number" class="cozy-input" id="inp_S3" value="${d.S3}" min="0" max="12" />
           </div>
         </div>
 
@@ -742,7 +743,7 @@ class ExperimentApp {
     d.S4 = s4TextMap[p.S4] || "No";
 
     const P = (p.S1 - 1) / 4;
-    const D = 1 - p.S2 / 6;
+    const D = 1 - p.S2 / 12;
     const B_own = Math.min(1, p.S3 / 6);
     const Buffer = 1 - (1 - B_own) * (1 - s4Val);
     const S_raw = (P + D + Buffer) / 3;
@@ -772,7 +773,7 @@ class ExperimentApp {
 
   renderHoltLaury() {
     this.world.setScene("town",
-      "Time for the benchmark price list. 10 rows, zero hidden tricks—just cold probability math. Choose Option X or Option Y for each row.",
+      "Time for the benchmark price list. Choose Option X or Option Y for each row.",
       0,
       "happy"
     );
@@ -1040,7 +1041,7 @@ class ExperimentApp {
 
   renderPostGame() {
     this.world.setScene("debrief",
-      "All 15 days completed! Just 4 quick credibility questions before I reveal your decision title and custom city bank artwork.",
+      "All 15 days completed! Just 4 quick credibility questions before I reveal the results.",
       16,
       "happy"
     );
@@ -1180,7 +1181,7 @@ class ExperimentApp {
     const randomChoice = d.dailyChoices[`D${randomDay}`]?.choice ?? "A";
 
     this.world.setScene("debrief",
-      `The ledger is officially closed. Here is your decision title and custom city bank artwork: ${persona.title}!`,
+      `The ledger is officially closed. Here is your decision title and custom city bank card: ${persona.title}!`,
       16,
       "proud"
     );
@@ -1189,7 +1190,7 @@ class ExperimentApp {
       <div class="section-tag">Study Complete · Official Debrief</div>
       <h2 class="page-title">Your Decision Profile</h2>
       <p class="page-subtitle">
-        Calculated from all 15 independent scenarios. Download your custom artwork card below.
+        Calculated from all 15 independent scenarios. Download your custom card below.
       </p>
 
       <!-- The Cozy Bank in City Art Card (Item 4) -->
@@ -1206,8 +1207,6 @@ class ExperimentApp {
           </div>
 
           <div class="reward-card-body">
-            <p class="reward-archetype-desc">${persona.tagline}</p>
-            
             <div class="reward-meta-row">
               <span>Risk: <strong>${persona.riskLabel}</strong></span>
               <span>Uncertainty: <strong>${persona.ambigLabel}</strong></span>
@@ -1220,7 +1219,7 @@ class ExperimentApp {
 
       <div class="btn-row" style="justify-content:center;margin-bottom:1.8rem;">
         <button class="btn-cozy-primary" onclick="app.downloadArtworkCard()">
-          Download Card Artwork (.PNG)
+          Download Card (.PNG)
         </button>
       </div>
 
@@ -1272,7 +1271,7 @@ class ExperimentApp {
     `);
   }
 
-  // ── ARTWORK CARD PNG CANVAS EXPORT (Title + Bank in City Art + Description) ──
+  // ── ARTWORK CARD PNG CANVAS EXPORT (Title + Bank in City Art + Risk/Uncertainty) ──
 
   downloadArtworkCard() {
     const persona = this.getPersona();
@@ -1280,7 +1279,7 @@ class ExperimentApp {
 
     const canvas = document.createElement("canvas");
     canvas.width = 900;
-    canvas.height = 1000;
+    canvas.height = 820;
     const ctx = canvas.getContext("2d");
 
     // Outer background
@@ -1288,7 +1287,7 @@ class ExperimentApp {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     // Card background
-    const cx = 60, cy = 60, cw = 780, ch = 880, r = 32;
+    const cx = 60, cy = 60, cw = 780, ch = 700, r = 32;
     ctx.beginPath();
     ctx.roundRect(cx, cy, cw, ch, r);
     ctx.fillStyle = "#fffdf9";
@@ -1330,44 +1329,14 @@ class ExperimentApp {
       ctx.strokeStyle = "#2d2621";
       ctx.stroke();
 
-      // Description at Bottom
-      ctx.fillStyle = "#2d2621";
-      ctx.font = "600 24px Nunito, sans-serif";
-      ctx.textAlign = "center";
-
-      // Word wrap description
-      const words = persona.tagline.split(" ");
-      let line = "";
-      let lineY = cy + 600;
-      for (let n = 0; n < words.length; n++) {
-        const testLine = line + words[n] + " ";
-        const metrics = ctx.measureText(testLine);
-        if (metrics.width > cw - 100 && n > 0) {
-          ctx.fillText(line, canvas.width / 2, lineY);
-          line = words[n] + " ";
-          lineY += 34;
-        } else {
-          line = testLine;
-        }
-      }
-      ctx.fillText(line, canvas.width / 2, lineY);
-
       // Meta info at bottom
-      ctx.beginPath();
-      ctx.setLineDash([6, 6]);
-      ctx.moveTo(cx + 80, cy + 720);
-      ctx.lineTo(cx + cw - 80, cy + 720);
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = "#c8b89a";
-      ctx.stroke();
-      ctx.setLineDash([]);
-
       ctx.fillStyle = "#786b5e";
       ctx.font = "bold 20px Nunito, sans-serif";
-      ctx.fillText(`RISK STYLE: ${persona.riskLabel.toUpperCase()}   •   UNCERTAINTY: ${persona.ambigLabel.toUpperCase()}`, canvas.width / 2, cy + 765);
+      ctx.textAlign = "center";
+      ctx.fillText(`RISK STYLE: ${persona.riskLabel.toUpperCase()}   •   UNCERTAINTY: ${persona.ambigLabel.toUpperCase()}`, canvas.width / 2, cy + 605);
 
       ctx.font = "bold 16px Nunito, sans-serif";
-      ctx.fillText("15 DAYS TO PAYDAY • NEUROECONOMICS DECISION STUDY", canvas.width / 2, cy + 825);
+      ctx.fillText("15 DAYS TO PAYDAY • NEUROECONOMICS DECISION STUDY", canvas.width / 2, cy + 655);
 
       // Trigger download
       const link = document.createElement("a");

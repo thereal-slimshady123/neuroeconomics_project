@@ -77,13 +77,13 @@ Answer for your **own real life**, not for the game.
 | :--- | :--- | :--- |
 | S0 | Main source of your monthly money | ☐ Salary ☐ Parental allowance ☐ Scholarship/stipend ☐ Part-time/freelance ☐ Mixed (*descriptive only, not scored*) |
 | S1 | **Predictability.** How predictable is the amount you receive each month? | 1 = Very unpredictable, 2 = Somewhat unpredictable, 3 = Neither, 4 = Fairly predictable, 5 = Fully predictable |
-| S2 | **Recent gaps.** In the last 6 months, in how many months was your money late, missing, or noticeably lower than expected? | 0, 1, 2, 3, 4, 5, or 6 months |
+| S2 | **Recent gaps.** In the last 12 months, in how many months was your money late, missing, or noticeably lower than expected? | 0 to 12 months |
 | S3 | **Own savings.** If your income stopped today, for how many months could your own liquid savings cover your essential expenses? | Number of months (decimals allowed; enter 0 if none) |
 | S4 | **Support backstop.** If your income stopped today, could family or others cover your essential expenses? | ☐ No (0) ☐ Partly, under 3 months (0.33) ☐ Mostly, 3+ months (0.67) ☐ Fully, 3+ months (1.0) |
 
 **Scoring:**
 
-$$P = \frac{S1 - 1}{4} \qquad D = 1 - \frac{S2}{6} \qquad B_{own} = \min\left(1, \frac{S3}{6}\right) \qquad B_{back} = \text{S4 score}$$
+$$P = \frac{S1 - 1}{4} \qquad D = 1 - \frac{S2}{12} \qquad B_{own} = \min\left(1, \frac{S3}{6}\right) \qquad B_{back} = \text{S4 score}$$
 
 $$\text{Buffer} = 1 - (1 - B_{own})(1 - B_{back})$$
 
