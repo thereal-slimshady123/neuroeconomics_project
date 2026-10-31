@@ -744,7 +744,7 @@ class ExperimentApp {
 
     const P = (p.S1 - 1) / 4;
     const D = 1 - p.S2 / 12;
-    const B_own = Math.min(1, p.S3 / 6);
+    const B_own = Math.min(1, p.S3 / 12);
     const Buffer = 1 - (1 - B_own) * (1 - s4Val);
     const S_raw = (P + D + Buffer) / 3;
     // Cap S for students at 0.50 to reflect transitory/non-career nature of student

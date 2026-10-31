@@ -1588,6 +1588,11 @@ body {
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
   cursor: pointer;
   transition: transform 0.15s ease, opacity 0.2s ease;
+  /* Label removed for public data collection: the button is invisible but
+     still opens the password-protected dock for the researchers. */
+  opacity: 0;
+  min-width: 56px;
+  min-height: 34px;
 }
 
 .presentation-launcher-btn:hover {

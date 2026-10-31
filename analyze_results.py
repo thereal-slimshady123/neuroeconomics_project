@@ -46,7 +46,7 @@ def compute_intake_scores(df):
     # S: Income Stability
     df["P"] = (df["S1"] - 1.0) / 4.0
     df["D"] = 1.0 - (df["S2"] / 12.0)
-    b_own = (df["S3"] / 6.0).clip(0.0, 1.0)
+    b_own = (df["S3"] / 12.0).clip(0.0, 1.0)
     b_back = df["S4"].clip(0.0, 1.0)
     df["Buffer"] = 1.0 - (1.0 - b_own) * (1.0 - b_back)
     raw_s = (df["P"] + df["D"] + df["Buffer"]) / 3.0
@@ -411,7 +411,7 @@ def simulate_v2_data(n=120):
         # Calculate individual S and R immediately to drive the structural choices
         p_comp = (s1 - 1.0) / 4.0
         d_comp = 1.0 - (s2 / 12.0)
-        b_own_val = min(1.0, s3 / 6.0)
+        b_own_val = min(1.0, s3 / 12.0)
         b_back_val = s4
         buffer_val = 1.0 - (1.0 - b_own_val) * (1.0 - b_back_val)
         raw_s_indiv = (p_comp + d_comp + buffer_val) / 3.0

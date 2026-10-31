@@ -83,7 +83,7 @@ Answer for your **own real life**, not for the game.
 
 **Scoring:**
 
-$$P = \frac{S1 - 1}{4} \qquad D = 1 - \frac{S2}{12} \qquad B_{own} = \min\left(1, \frac{S3}{6}\right) \qquad B_{back} = \text{S4 score}$$
+$$P = \frac{S1 - 1}{4} \qquad D = 1 - \frac{S2}{12} \qquad B_{own} = \min\left(1, \frac{S3}{12}\right) \qquad B_{back} = \text{S4 score}$$
 
 $$\text{Buffer} = 1 - (1 - B_{own})(1 - B_{back})$$
 
