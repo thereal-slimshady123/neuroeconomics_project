@@ -1,7 +1,6 @@
 # Metric to Question Mapping & Theoretical Calibration Guide (v2)
 **Project:** Preferences Toward Risk, Uncertainty, and Safety in Financial Decisions (Students vs. IT Professionals)  
-**Authors:** Parth Dhodapkar & Joshua Koilpillai  
-**Reference Document:** [questionnaire.md](file:///c:/Users/Parth%20Dhodapkar/Downloads/Sem-5/Neuroeconomics/project/questionnaire.md) (v2.0)
+**Reference Document:** [questionnaire.md](questionnaire.md) (v2.0)
 
 ---
 

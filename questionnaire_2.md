@@ -1,7 +1,6 @@
 # Neuroeconomics Decision Game: "15 Days of Payday" (v2)
 
 **Project:** Preferences Toward Risk, Uncertainty, and Safety in Financial Decisions (Students vs. IT Professionals)
-**Authors:** Parth Dhodapkar & Joshua Koilpillai
 **Version:** 2.0 (revised after methodological review)
 
 ---

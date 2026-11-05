@@ -1,8 +1,7 @@
 # 15 Days of Payday: Interactive Decision Game (v2.0)
 
-**Authors:** Parth Dhodapkar & Joshua Koilpillai  
 **Project:** Preferences Toward Risk, Uncertainty, and Safety in Financial Decisions (Students vs. IT Professionals)  
-**Scientific Reference:** [questionnaire_2.md](file:///c:/Users/Parth%20Dhodapkar/Downloads/Sem-5/Neuroeconomics/project/questionnaire_2.md) | [map.md](file:///c:/Users/Parth%20Dhodapkar/Downloads/Sem-5/Neuroeconomics/project/map.md)
+**Scientific Reference:** [questionnaire_2.md](questionnaire_2.md) | [map.md](map.md)
 
 ---
 
@@ -48,9 +47,9 @@ Each completed response is appended as a row to a Google Sheet, and `dashboard.h
 ### One-time setup
 1. Create a Google Sheet at [sheets.new](https://sheets.new).
 2. In the sheet: **Extensions > Apps Script**. Delete the default code and paste in the contents of `apps_script/Code.gs`.
-3. Edit the two tokens at the top of `Code.gs`:
-   - `WRITE_TOKEN` must match `WRITE_TOKEN` in `js/config.js`.
-   - `READ_KEY` is the password you type into the dashboard. Keep it private.
+3. Set the two tokens:
+   - `WRITE_TOKEN` at the top of `Code.gs` must match `WRITE_TOKEN` in `js/config.js`.
+   - In the Apps Script editor, go to **Project Settings > Script Properties** and add a property named `READ_KEY`. Its value is the password you type into the dashboard. Keep it private and out of the repo.
 4. **Deploy > New deployment > Select type: Web app**. Set *Execute as: Me* and *Who has access: Anyone*. Click **Deploy** and copy the URL ending in `/exec`.
 5. Open `js/config.js` and paste that URL into `WEBHOOK_URL`. Commit and push (see Deploying below).
 

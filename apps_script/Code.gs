@@ -5,11 +5,9 @@
  * GET  ?key=... (dashboard) -> returns every row as JSON
  *
  * Setup: see README.md, section "Live Data Pipeline".
- * Authors: Parth Dhodapkar & Joshua Koilpillai
  */
 const SHEET_NAME = "Responses";
 const WRITE_TOKEN = "change-me-write-token"; // must match WRITE_TOKEN in js/config.js
-const READ_KEY = "change-me-read-key";       // typed into dashboard.html, never committed
 
 function doPost(e) {
   const lock = LockService.getScriptLock();
@@ -31,7 +29,9 @@ function doPost(e) {
 }
 
 function doGet(e) {
-  if (!e.parameter.key || e.parameter.key !== READ_KEY) {
+  // READ_KEY lives in Project Settings > Script Properties, so it is never in this file.
+  const readKey = PropertiesService.getScriptProperties().getProperty("READ_KEY");
+  if (!readKey || e.parameter.key !== readKey) {
     return reply_({ ok: false, error: "unauthorized" });
   }
   const values = getSheet_().getDataRange().getValues();

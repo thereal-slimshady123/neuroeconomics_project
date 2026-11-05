@@ -152,15 +152,6 @@ body {
   color: var(--text-main);
 }
 
-.brand-authors-sub {
-  font-family: var(--font-main);
-  font-size: 0.62rem;
-  font-weight: 700;
-  color: var(--text-muted);
-  letter-spacing: 0.2px;
-  opacity: 0.9;
-}
-
 .top-bar-hud {
   display: flex;
   align-items: center;
@@ -1757,10 +1748,6 @@ body {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-  }
-
-  .brand-authors-sub {
-    display: none; /* Hide in compact sticky bar on mobile */
   }
 
   .top-bar-hud {

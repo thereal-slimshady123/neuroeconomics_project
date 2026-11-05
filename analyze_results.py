@@ -2,7 +2,6 @@
 analyze_results.py
 Neuroeconomics Data Analysis & Simulation Engine (v2.0 - Structurally Grounded)
 Project: Preferences Toward Risk, Uncertainty, and Safety in Financial Decisions
-Authors: Parth Dhodapkar & Joshua Koilpillai
 """
 
 import argparse
@@ -498,7 +497,7 @@ NUMERIC_COLS = ["S1", "S2", "S3", "R1", "R2", "R3", "R4"]
 DECISION_COLS = [f"D{i}" for i in range(1, 16)]
 HL_COLS = [f"HL{i}" for i in range(1, 11)]
 
-def load_real_data(path):
+def load_real_data(path, sheet=None):
     """
     Loads the exported Google Sheet (.xlsx or .csv) and returns a DataFrame in the same
     schema as simulate_v2_data(), so compute_intake_scores and compute_game_metrics work on it.
@@ -506,12 +505,17 @@ def load_real_data(path):
     """
     path = Path(path)
     if path.suffix.lower() in (".xlsx", ".xls"):
-        df = pd.read_excel(path)
+        if sheet is None:
+            # Check if "Responses" exists; if so default to it, else use the first sheet (0)
+            xl = pd.ExcelFile(path)
+            sheet = "Responses" if "Responses" in xl.sheet_names else 0
+        df = pd.read_excel(path, sheet_name=sheet)
     elif path.suffix.lower() == ".csv":
         df = pd.read_csv(path)
     else:
         raise ValueError(f"Unsupported file type: {path.suffix} (use .xlsx or .csv)")
-    return clean_responses(df, path.name)
+    source_name = f"{path.name} (sheet: {sheet})" if path.suffix.lower() in (".xlsx", ".xls") else path.name
+    return clean_responses(df, source_name)
 
 def clean_responses(df, source):
     """Shared cleaning for file and live data: encodings, required columns, incomplete rows."""
@@ -601,15 +605,21 @@ if __name__ == "__main__":
     source = parser.add_mutually_exclusive_group()
     source.add_argument("--data", help="Exported responses (.xlsx or .csv).")
     source.add_argument("--live", action="store_true", help="Fetch the current responses from the Google Sheet.")
+    parser.add_argument("--sheet", default=None, help="Sheet name when reading an Excel workbook (e.g. 'Responses', 'Simulation Runs'). Defaults to 'Responses' if present, else first sheet.")
     args = parser.parse_args()
 
     print("=============================================================")
-    if args.live or args.data:
-        print("RUNNING NEUROECONOMICS ANALYSIS ON REAL DATA")
-        df = load_live_data() if args.live else load_real_data(args.data)
+    if args.live:
+        print("RUNNING NEUROECONOMICS ANALYSIS ON REAL DATA (LIVE GOOGLE SHEET: 'Responses')")
+        df = load_live_data()
+        print(f"Cohort counts: {df['Cohort'].value_counts().to_dict()}")
+    elif args.data:
+        print(f"RUNNING NEUROECONOMICS ANALYSIS ON REAL DATA (EXPORTED FILE: {args.data})")
+        df = load_real_data(args.data, sheet=args.sheet)
         print(f"Cohort counts: {df['Cohort'].value_counts().to_dict()}")
     else:
-        print("RUNNING NEUROECONOMICS STRUCTURAL SIMULATION ENGINE")
+        print("RUNNING NEUROECONOMICS STRUCTURAL SIMULATION ENGINE (120 Synthetic Participants)")
+        print("(Note: To run on your live Google Sheet responses, use: python analyze_results.py --live)")
         df = simulate_v2_data(n=120)
     print("=============================================================")
 

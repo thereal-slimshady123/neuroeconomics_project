@@ -1,7 +1,6 @@
 /**
  * Live dashboard for "15 Days of Payday".
  * Polls the Apps Script endpoint (CONFIG.WEBHOOK_URL) and redraws the charts.
- * Authors: Parth Dhodapkar & Joshua Koilpillai
  */
 const POLL_MS = 5000;
 const KEY_STORAGE = "payday_read_key";

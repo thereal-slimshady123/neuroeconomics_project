@@ -1,6 +1,5 @@
 /**
  * Neuroeconomics Experiment Configuration: "15 Days of Payday" (v2.0)
- * Authors: Parth Dhodapkar & Joshua Koilpillai
  */
 const CONFIG = {
   // Paste your Google Apps Script / Excel PowerAutomate Webhook URL here
