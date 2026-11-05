@@ -1476,25 +1476,15 @@ body {
 }
 
 .reward-card-body {
-  padding: 1.4rem 1.6rem 1.6rem;
+  padding: 1.1rem 1.6rem 1.3rem;
   text-align: center;
   background: var(--bg-card);
-}
-
-.reward-archetype-desc {
-  font-size: 1.05rem;
-  color: var(--text-main);
-  font-weight: 700;
-  line-height: 1.45;
 }
 
 .reward-meta-row {
   display: flex;
   justify-content: center;
   gap: 1.5rem;
-  margin-top: 1.2rem;
-  padding-top: 1rem;
-  border-top: 1.5px dashed var(--border-soft);
   font-size: 0.85rem;
   font-weight: 800;
   color: var(--text-muted);
@@ -1589,6 +1579,11 @@ body {
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
   cursor: pointer;
   transition: transform 0.15s ease, opacity 0.2s ease;
+  /* Label removed for public data collection: the button is invisible but
+     still opens the password-protected dock for the researchers. */
+  opacity: 0;
+  min-width: 56px;
+  min-height: 34px;
 }
 
 .presentation-launcher-btn:hover {
@@ -2095,11 +2090,7 @@ body {
   }
 
   .reward-card-body {
-    padding: 1rem;
-  }
-
-  .reward-archetype-desc {
-    font-size: 0.92rem;
+    padding: 0.85rem 1rem 1rem;
   }
 
   .reward-meta-row {
