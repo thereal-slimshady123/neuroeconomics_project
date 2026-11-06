@@ -8,7 +8,7 @@ const CONFIG = {
 
   // Shared token the Apps Script checks before saving a row. Visible in the source,
   // so it only stops casual junk submissions. Must match WRITE_TOKEN in apps_script/Code.gs.
-  WRITE_TOKEN: "change-me-write-token",
+  WRITE_TOKEN: "eaxtOKDCEteSO-kw9QEag8UOAZN-VMPd",
 
   // Stake scaling parameter k (default = 1.0; see questionnaire_2.md Section 7)
   STAKE_SCALE_K: 1.0,

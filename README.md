@@ -47,9 +47,9 @@ Each completed response is appended as a row to a Google Sheet, and `dashboard.h
 ### One-time setup
 1. Create a Google Sheet at [sheets.new](https://sheets.new).
 2. In the sheet: **Extensions > Apps Script**. Delete the default code and paste in the contents of `apps_script/Code.gs`.
-3. Set the two tokens:
-   - `WRITE_TOKEN` at the top of `Code.gs` must match `WRITE_TOKEN` in `js/config.js`.
-   - In the Apps Script editor, go to **Project Settings > Script Properties** and add a property named `READ_KEY`. Its value is the password you type into the dashboard. Keep it private and out of the repo.
+3. Set the two tokens. Their values are kept in a local, git-ignored `.env` file (`NEUROECO_READ_KEY`, `NEUROECO_WRITE_TOKEN`).
+   - In the Apps Script editor, go to **Project Settings > Script Properties** and add `WRITE_TOKEN` (must match `WRITE_TOKEN` in `js/config.js`) and `READ_KEY` (the password you type into the dashboard).
+   - `analyze_results.py --live` reads `NEUROECO_READ_KEY` and `NEUROECO_WEBHOOK_URL` from `.env` automatically.
 4. **Deploy > New deployment > Select type: Web app**. Set *Execute as: Me* and *Who has access: Anyone*. Click **Deploy** and copy the URL ending in `/exec`.
 5. Open `js/config.js` and paste that URL into `WEBHOOK_URL`. Commit and push (see Deploying below).
 

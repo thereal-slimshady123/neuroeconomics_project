@@ -182,25 +182,31 @@ def plot_fig1_sr_landscape(df, filename="fig1_sr_landscape.png"):
     ax.text(0.85, 0.15, "Q2: High S, Low R\n(Unburdened IT Pros)", fontsize=11, fontweight="bold",
             color="#27AE60", ha="center", va="center", bbox=dict(boxstyle="round,pad=0.4", fc="white", alpha=0.9, ec="#27AE60"))
     
-    # Scatter points colored by continuous Gamble Propensity
+    # Centroids per Quadrant (plotted with zorder=4 so data dots remain visible on top)
+    for quad, color in QUADRANT_PALETTE.items():
+        sub = df[df["SR_Quadrant"] == quad].dropna(subset=["S", "R"])
+        if len(sub) < 1:
+            continue
+        mean_s, mean_r = sub["S"].mean(), sub["R"].mean()
+        ax.scatter(mean_s, mean_r, marker="*", s=360, color=color, edgecolor="black", lw=1.2,
+                   label=f"Centroid ({mean_s:.2f}, {mean_r:.2f})", zorder=4, alpha=0.75)
+        if len(sub) >= 3:
+            add_confidence_ellipse(ax, sub["S"], sub["R"], color)
+
+    # Add slight jitter for visualization so coinciding/overlapping dots are visible
+    rng = np.random.RandomState(42)
+    s_plot = df["S"] + rng.uniform(-0.007, 0.007, size=len(df))
+    r_plot = df["R"] + rng.uniform(-0.007, 0.007, size=len(df))
+
+    # Scatter points colored by continuous Gamble Propensity (plotted on top of centroids)
     scatter = ax.scatter(
-        df["S"], df["R"], 
+        s_plot, r_plot, 
         c=df["GP"], 
-        cmap="coolwarm", s=115, alpha=0.88, edgecolors="black", linewidth=0.6
+        cmap="coolwarm", s=120, alpha=0.92, edgecolors="black", linewidth=0.8,
+        zorder=6
     )
     cbar = plt.colorbar(scatter, ax=ax, pad=0.02)
     cbar.set_label("Gamble Propensity (% Gambles Chosen)", fontsize=11)
-    
-    # Centroids per Quadrant
-    for quad, color in QUADRANT_PALETTE.items():
-        sub = df[df["SR_Quadrant"] == quad].dropna(subset=["S", "R"])
-        if len(sub) < 2:
-            continue
-        mean_s, mean_r = sub["S"].mean(), sub["R"].mean()
-        ax.scatter(mean_s, mean_r, marker="*", s=380, color=color, edgecolor="black", lw=1.2,
-                   label=f"Centroid ({mean_s:.2f}, {mean_r:.2f})", zorder=6)
-        if len(sub) >= 3:
-            add_confidence_ellipse(ax, sub["S"], sub["R"], color)
 
     # Fitted Logistic Boundary (GP >= 50%)
     try:
@@ -535,25 +541,51 @@ def clean_responses(df, source):
 
     df = df.dropna(subset=NUMERIC_COLS + ["S4"])
     df = df.dropna(subset=DECISION_COLS + HL_COLS)
-    print(f"Loaded {len(df)} complete responses from {source} ({n_total - len(df)} incomplete dropped).")
+    
+    # Deduplicate participants by unique ID and timestamp
+    n_before_dedup = len(df)
+    if "id" in df.columns:
+        df = df.drop_duplicates(subset=["id"], keep="first")
+    if "timestamp" in df.columns:
+        df = df.drop_duplicates(subset=["timestamp"], keep="first")
+    n_dropped_dups = n_before_dedup - len(df)
+    if n_dropped_dups > 0:
+        print(f"Dropped {n_dropped_dups} duplicate response(s). Retained {len(df)} unique participants.")
+
+    print(f"Loaded {len(df)} complete responses from {source} ({n_total - len(df)} dropped: incomplete or duplicate).")
     return df.reset_index(drop=True)
+
+def load_dotenv(path=Path(__file__).resolve().parent / ".env"):
+    """Loads KEY=VALUE lines from .env into os.environ without overriding variables already set."""
+    if not path.exists():
+        return
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
 
 def load_live_data():
     """
     Fetches every response straight from the Apps Script read endpoint (doGet in apps_script/Code.gs).
-    The URL comes from WEBHOOK_URL in js/config.js. The read key comes from the
-    NEUROECO_READ_KEY environment variable, so it never lands in the repo.
+    The read key comes from NEUROECO_READ_KEY and the URL from NEUROECO_WEBHOOK_URL, both read
+    from the local .env file (or the shell environment). The URL falls back to js/config.js.
     """
+    load_dotenv()
     read_key = os.environ.get("NEUROECO_READ_KEY")
     if not read_key:
-        raise SystemExit("Set the NEUROECO_READ_KEY environment variable to your READ_KEY from apps_script/Code.gs.")
+        raise SystemExit("Set NEUROECO_READ_KEY in .env to the READ_KEY Script Property of the Apps Script.")
 
-    config = (Path(__file__).resolve().parent / "js" / "config.js").read_text(encoding="utf-8")
-    match = re.search(r'WEBHOOK_URL:\s*"([^"]+)"', config)
-    if not match or not match.group(1).strip():
-        raise SystemExit("WEBHOOK_URL is empty in js/config.js.")
+    webhook_url = os.environ.get("NEUROECO_WEBHOOK_URL", "").strip()
+    if not webhook_url:
+        config = (Path(__file__).resolve().parent / "js" / "config.js").read_text(encoding="utf-8")
+        match = re.search(r'WEBHOOK_URL:\s*"([^"]+)"', config)
+        if not match or not match.group(1).strip():
+            raise SystemExit("Set NEUROECO_WEBHOOK_URL in .env (WEBHOOK_URL in js/config.js is empty too).")
+        webhook_url = match.group(1).strip()
 
-    url = f"{match.group(1).strip()}?{urllib.parse.urlencode({'key': read_key})}"
+    url = f"{webhook_url}?{urllib.parse.urlencode({'key': read_key})}"
     with urllib.request.urlopen(url, timeout=60) as resp:
         payload = json.loads(resp.read().decode("utf-8"))
     if not payload.get("ok"):

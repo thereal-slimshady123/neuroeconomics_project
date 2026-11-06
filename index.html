@@ -145,17 +145,28 @@
     })();
 
     // Toggle Presentation Dock
-    const SKIP_STAGES_PASSWORD = 'jorgan_dealer123';
+    // SHA-256 of SKIP_STAGES_PASSWORD from the local .env; the password itself is not in the source.
+    const SKIP_STAGES_PASSWORD_SHA256 = 'eafa1c09077d2f840ab4aef514ca41c64a86ea811fbc3c2f040c6bf458b9ad96';
 
-    function togglePresentationDock() {
+    async function sha256Hex(text) {
+      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    async function togglePresentationDock() {
       const dock = document.getElementById('presentationDock');
       const launcher = document.getElementById('presentationLauncher');
       if (dock && launcher) {
         // Opening the dock requires the password; closing it does not.
         if (!dock.classList.contains('active')) {
           const entered = window.prompt('Enter the password to use Skip Stages:');
-          if (entered !== SKIP_STAGES_PASSWORD) {
-            if (entered !== null) alert('Incorrect password.');
+          if (entered === null) return;
+          if (!window.crypto || !crypto.subtle) {
+            alert('Skip Stages needs the page to be served over https or localhost.');
+            return;
+          }
+          if (await sha256Hex(entered) !== SKIP_STAGES_PASSWORD_SHA256) {
+            alert('Incorrect password.');
             return;
           }
         }

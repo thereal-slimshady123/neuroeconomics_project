@@ -1088,6 +1088,15 @@ class ExperimentApp {
   }
 
   submitAll() {
+    if (this._hasSubmitted) return;
+    this._hasSubmitted = true;
+
+    const btn = document.querySelector("button[onclick='app.submitAll()']");
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = "Transmitting results...";
+    }
+
     this.data.E1 = document.getElementById("inp_E1") ? document.getElementById("inp_E1").value : "4";
     this.data.E2 = document.getElementById("inp_E2") ? document.getElementById("inp_E2").value : "3";
     this.data.E3 = document.getElementById("inp_E3") ? document.getElementById("inp_E3").value : "4";

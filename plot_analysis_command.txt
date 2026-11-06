@@ -1,2 +1,1 @@
-$env:NEUROECO_READ_KEY="change-me-read-key"
 python analyze_results.py --live

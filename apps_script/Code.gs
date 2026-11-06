@@ -7,17 +7,38 @@
  * Setup: see README.md, section "Live Data Pipeline".
  */
 const SHEET_NAME = "Responses";
-const WRITE_TOKEN = "change-me-write-token"; // must match WRITE_TOKEN in js/config.js
+// WRITE_TOKEN and READ_KEY live in Project Settings > Script Properties (values in your local .env),
+// so neither is in this file. WRITE_TOKEN must match WRITE_TOKEN in js/config.js.
 
 function doPost(e) {
   const lock = LockService.getScriptLock();
   lock.waitLock(15000);
   try {
     const row = JSON.parse(e.postData.contents);
-    if (row.token !== WRITE_TOKEN) return reply_({ ok: false, error: "bad token" });
+    const writeToken = PropertiesService.getScriptProperties().getProperty("WRITE_TOKEN");
+    if (!writeToken || row.token !== writeToken) return reply_({ ok: false, error: "bad token" });
     delete row.token;
 
     const sheet = getSheet_();
+
+    // Prevent duplicate entries by checking if the subject ID or timestamp already exists
+    if (sheet.getLastRow() > 1) {
+      const data = sheet.getDataRange().getValues();
+      const headers = data[0];
+      const idIdx = headers.indexOf("id");
+      const tsIdx = headers.indexOf("timestamp");
+
+      const isDup = data.slice(1).some(r => {
+        const idMatch = idIdx !== -1 && row.id && r[idIdx] === row.id;
+        const tsMatch = tsIdx !== -1 && row.timestamp && r[tsIdx] === row.timestamp;
+        return idMatch || tsMatch;
+      });
+
+      if (isDup) {
+        return reply_({ ok: true, message: "Duplicate submission ignored", id: row.id });
+      }
+    }
+
     const headers = ensureHeaders_(sheet, Object.keys(row));
     sheet.appendRow(headers.map(h => toCell_(row[h])));
     return reply_({ ok: true, rows: sheet.getLastRow() - 1 });
