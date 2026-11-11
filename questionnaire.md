@@ -107,11 +107,11 @@ $$S = \begin{cases} \min(S_{raw}, 0.50) & \text{if Cohort} = \text{Student} \\ S
 
 **Scoring:**
 
-$$\text{Dep} = \min\left(1, \frac{R1}{3}\right) \qquad \text{Cash} = \min\left(1, \frac{R3 + R4}{R2}\right)$$
+$$\text{Dep} = \begin{cases} 0 & R1 = 0 \\ \min\left(1,\ 0.70 + 0.15\,(R1-1)\right) & R1 \ge 1 \end{cases} \qquad \text{Cash} = \min\left(1, \frac{R3 + R4}{R2}\right)$$
 
 $$R = \frac{\text{Dep} + \text{Cash}}{2} \qquad R \in [0, 1]$$
 
-Rent and debt are combined into one cash-commitment ratio because both draw on the same monthly money. Dependents are kept separate because they capture obligation to other people. Report Dep and Cash separately as well.
+Rent and debt are combined into one cash-commitment ratio because both draw on the same monthly money. Dependents are kept separate because they capture obligation to other people. Any dependent is treated as a binding obligation (1 → 0.70, 2 → 0.85, 3+ → 1.00), so one dependent alone gives R ≥ 0.35, the High-R threshold. Report Dep and Cash separately as well.
 
 ---
 

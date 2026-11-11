@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-from scipy import stats
+from scipy import special, stats
 from scipy.optimize import minimize
 from matplotlib.patches import Ellipse
 
@@ -57,7 +57,9 @@ def compute_intake_scores(df):
     df["S"] = np.where(is_student, np.minimum(raw_s, 0.5), raw_s)
     
     # R: Financial Responsibility
-    df["Dep"] = (df["R1"] / 3.0).clip(0.0, 1.0)
+    # Any dependent is a binding obligation: 1 -> 0.70, 2 -> 0.85, 3+ -> 1.0.
+    # Dep >= 0.70 guarantees R >= 0.35 (the High-R threshold) even with Cash = 0.
+    df["Dep"] = np.where(df["R1"] > 0, (0.7 + 0.15 * (df["R1"] - 1)).clip(upper=1.0), 0.0)
     cash_ratio = (df["R3"] + df["R4"]) / df["R2"].replace(0, np.nan)
     df["Cash"] = cash_ratio.fillna(0.0).clip(0.0, 1.0)
     df["R"] = (df["Dep"] + df["Cash"]) / 2.0
@@ -123,6 +125,149 @@ def cliffs_delta(lst1, lst2):
     return (greater - less) / (m * n)
 
 # ==========================================
+# 1b. DESIGN CONSTANTS & STATISTICAL HELPERS
+# ==========================================
+
+# EV(B) - EV(A) per day, from the calibration table in questionnaire_2.md (Section 7).
+EV_PREMIUM = {1: 0, 2: 120, 3: -50, 4: 66, 5: 100, 6: -150, 7: 0,
+              9: 200, 10: 0, 11: 250, 12: -500, 13: 0, 14: 30, 15: 750}
+PREMIUM_GROUPS = {
+    "Negative": [d for d, v in EV_PREMIUM.items() if v < 0],
+    "Zero": [d for d, v in EV_PREMIUM.items() if v == 0],
+    "Positive": [d for d, v in EV_PREMIUM.items() if v > 0],
+}
+LOSS_DAYS = {7, 10, 13}
+SCORED_DAYS = sorted(EV_PREMIUM)
+CRASH_ORDER = ["Sell", "Hold", "Buy more"]
+
+def is_it(df):
+    return (df["Cohort"] == "IT Professional").astype(float)
+
+def quadrant_ticklabels(df, order):
+    counts = df["SR_Quadrant"].value_counts()
+    return [q.replace(" (", "\n(") + f"\nn = {counts.get(q, 0)}" for q in order]
+
+def holm(pvals):
+    """Holm step-down adjusted p-values."""
+    pvals = np.asarray(pvals, dtype=float)
+    adj, running, m = np.empty_like(pvals), 0.0, len(pvals)
+    for rank, i in enumerate(np.argsort(pvals)):
+        running = max(running, min(1.0, (m - rank) * pvals[i]))
+        adj[i] = running
+    return adj
+
+def ffh_exact_test(ct, n_perm=20000, seed=0):
+    """
+    Fisher-Freeman-Halton exact test for an r x c table (the r x c extension of Fisher's exact test).
+    Tables with the observed margins are sampled by permutation (Monte Carlo); p is the share of
+    sampled tables that are at most as probable as the observed one.
+    """
+    ct = ct.loc[ct.sum(axis=1) > 0, ct.sum(axis=0) > 0]
+    if min(ct.shape) < 2:
+        return np.nan
+    table = ct.values.astype(int)
+    r, c = table.shape
+    rows = np.repeat(np.repeat(np.arange(r), c), table.ravel())
+    cols = np.repeat(np.tile(np.arange(c), r), table.ravel())
+    rng = np.random.default_rng(seed)
+    perm_cols = rng.permuted(np.tile(cols, (n_perm, 1)), axis=1)
+    flat = (np.arange(n_perm)[:, None] * (r * c) + rows[None, :] * c + perm_cols).ravel()
+    counts = np.bincount(flat, minlength=n_perm * r * c).reshape(n_perm, r * c)
+    # Under fixed margins, P(table) is proportional to 1 / prod(n_ij!).
+    log_prob = lambda t: -special.gammaln(np.asarray(t, dtype=float) + 1).sum(axis=-1)
+    obs = log_prob(table.ravel())
+    return (np.sum(log_prob(counts) <= obs + 1e-9) + 1) / (n_perm + 1)
+
+def ols(y, X, names):
+    """OLS with classical SEs. Returns (coefficient table, R^2, overall F-test p)."""
+    n, k = X.shape
+    b = np.linalg.lstsq(X, y, rcond=None)[0]
+    e = y - X @ b
+    dof = n - k
+    se = np.sqrt(np.diag((e @ e) / dof * np.linalg.inv(X.T @ X)))
+    q = stats.t.ppf(0.975, dof)
+    r2 = 1 - (e @ e) / ((y - y.mean()) ** 2).sum()
+    p_f = stats.f.sf((r2 / (k - 1)) / ((1 - r2) / dof), k - 1, dof)
+    table = pd.DataFrame({"b": b, "CI low": b - q * se, "CI high": b + q * se,
+                          "p": 2 * stats.t.sf(np.abs(b / se), dof)}, index=names)
+    return table, r2, p_f
+
+def logit_cluster(y, X, groups, names, max_iter=100):
+    """
+    Logistic regression with participant-clustered (sandwich) standard errors, i.e. a GEE logit with an
+    independence working correlation. Returns odds ratios with 95% CIs.
+    """
+    b = np.zeros(X.shape[1])
+    for _ in range(max_iter):
+        p = special.expit(X @ b)
+        step = np.linalg.solve(X.T @ (X * (p * (1 - p))[:, None]) + 1e-9 * np.eye(len(b)), X.T @ (y - p))
+        b += step
+        if np.max(np.abs(step)) < 1e-8:
+            break
+    p = special.expit(X @ b)
+    bread = np.linalg.inv(X.T @ (X * (p * (1 - p))[:, None]))
+    scores = pd.DataFrame(X * (y - p)[:, None]).groupby(np.asarray(groups)).sum().values
+    n_groups = scores.shape[0]
+    cov = bread @ (scores.T @ scores) @ bread * n_groups / (n_groups - 1)
+    se = np.sqrt(np.diag(cov))
+    return pd.DataFrame({"OR": np.exp(b), "CI low": np.exp(b - 1.96 * se), "CI high": np.exp(b + 1.96 * se),
+                         "p": 2 * stats.norm.sf(np.abs(b / se))}, index=names)
+
+def numerical_hessian(f, x, h=1e-4):
+    n = len(x)
+    H = np.zeros((n, n))
+    for i in range(n):
+        for j in range(i, n):
+            ei, ej = np.zeros(n), np.zeros(n)
+            ei[i], ej[j] = h, h
+            H[i, j] = H[j, i] = (f(x + ei + ej) - f(x + ei - ej) - f(x - ei + ej) + f(x - ei - ej)) / (4 * h * h)
+    return H
+
+def ordinal_logit(y, X, names):
+    """
+    Proportional-odds (cumulative logit) model for an ordered outcome coded 0 < 1 < ... < k-1.
+    OR > 1 means a shift toward higher categories. Returns odds ratios with 95% Wald CIs.
+    """
+    k = int(y.max()) + 1
+    idx = np.arange(len(y))
+
+    def nll(w):
+        thresholds = np.cumsum(np.concatenate([[w[0]], np.exp(w[1:k - 1])]))
+        cdf = special.expit(thresholds[None, :] - (X @ w[k - 1:])[:, None])
+        cdf = np.column_stack([np.zeros(len(y)), cdf, np.ones(len(y))])
+        return -np.sum(np.log(np.clip(cdf[idx, y + 1] - cdf[idx, y], 1e-12, None)))
+
+    res = minimize(nll, np.zeros(k - 1 + X.shape[1]), method="BFGS")
+    se = np.sqrt(np.diag(np.linalg.inv(numerical_hessian(nll, res.x))))[k - 1:]
+    b = res.x[k - 1:]
+    return pd.DataFrame({"OR": np.exp(b), "CI low": np.exp(b - 1.96 * se), "CI high": np.exp(b + 1.96 * se),
+                         "p": 2 * stats.norm.sf(np.abs(b / se))}, index=names)
+
+def build_trials(df):
+    """Long format: one row per participant x scored day, with person-level covariates (Section 6.2)."""
+    person = pd.DataFrame({
+        "pid": np.arange(len(df)),
+        "S": df["S"].values, "R": df["R"].values, "IT": is_it(df).values,
+        "FL": df["FL_Score"].values,
+        "age": pd.to_numeric(df.get("age"), errors="coerce"),
+        "male": df.get("gender", pd.Series("", index=df.index)).astype(str).str.strip().str.lower().isin(["male", "man"]).astype(float).values,
+        "invest": (~df.get("invest_exp", pd.Series("None", index=df.index)).astype(str).str.strip().isin(["None", "0", "nan"])).astype(float).values,
+        "risk_will": pd.to_numeric(df.get("risk_willingness"), errors="coerce"),
+    })
+    for c in ["age", "risk_will"]:
+        person[c] = np.asarray(person[c], dtype=float)
+        person[c] = (person[c] - np.nanmean(person[c])) / np.nanstd(person[c])
+    trials = []
+    for d in SCORED_DAYS:
+        t = person.copy()
+        t["choice"] = df[f"D{d}"].values
+        t["prem_neg"] = float(EV_PREMIUM[d] < 0)
+        t["prem_pos"] = float(EV_PREMIUM[d] > 0)
+        t["loss"] = float(d in LOSS_DAYS)
+        trials.append(t)
+    return pd.concat(trials, ignore_index=True).dropna()
+
+# ==========================================
 # 2. QUADRANT-ALIGNED PLOTTING FUNCTIONS
 # ==========================================
 
@@ -149,10 +294,10 @@ def chi2_with_cramers_v(ct):
     return chi2, p, cramers_v
 
 def cohort_crash_test(df):
-    """H3: Chi-square of Crash Reaction by Cohort, with Cramer's V."""
-    categories = ["Sell", "Hold", "Buy more"]
-    ct = pd.crosstab(df["Cohort"], df["Crash_Reaction"]).reindex(columns=categories, fill_value=0)
-    return chi2_with_cramers_v(ct)
+    """H3: Fisher-Freeman-Halton exact test of Crash Reaction by Cohort, with Cramer's V as effect size."""
+    ct = pd.crosstab(df["Cohort"], df["Crash_Reaction"]).reindex(columns=CRASH_ORDER, fill_value=0)
+    _, _, cramers_v = chi2_with_cramers_v(ct)
+    return ffh_exact_test(ct), cramers_v, ct
 
 def add_confidence_ellipse(ax, x, y, color):
     """95% covariance ellipse (chi-square, 2 dof) around a group's (x, y) points."""
@@ -263,10 +408,7 @@ def plot_fig2_ambiguity_share(df, filename="fig2_ambiguity_share.png"):
     ax.set_ylabel("Ambiguity Share (% Gambles on Option C)", fontsize=11)
     ax.set_xlabel("Financial Profile Quadrant", fontsize=11)
     ax.set_xticks(range(len(order)))
-    ax.set_xticklabels(["High S, Low R\n(Unburdened IT)", 
-                        "Low S, Low R\n(Supported Student)", 
-                        "High S, High R\n(Committed IT)", 
-                        "Low S, High R\n(Working Student)"], fontsize=9.5, fontweight="bold")
+    ax.set_xticklabels(quadrant_ticklabels(clean_df, order), fontsize=9.5, fontweight="bold")
     ax.set_ylim(-5, 115)
     ax.legend(loc="upper left")
     plt.savefig(filename, bbox_inches="tight")
@@ -275,25 +417,29 @@ def plot_fig2_ambiguity_share(df, filename="fig2_ambiguity_share.png"):
 def plot_fig3_crash_reaction(df, filename="fig3_crash_reaction.png"):
     fig, ax = plt.subplots(figsize=(9.5, 6), dpi=300)
     
-    categories = ["Sell", "Hold", "Buy more"]
     order = list(QUADRANT_PALETTE.keys())
-    ct_raw = pd.crosstab(df["SR_Quadrant"], df["Crash_Reaction"]).reindex(index=order, columns=categories, fill_value=0)
-    ct_pct = ct_raw.div(ct_raw.sum(axis=1), axis=0) * 100
-    
-    chi2, p, cramers_v = chi2_with_cramers_v(ct_raw)
-    
+    ct_raw = pd.crosstab(df["SR_Quadrant"], df["Crash_Reaction"]).reindex(index=order, columns=CRASH_ORDER, fill_value=0)
+    ct_pct = ct_raw.div(ct_raw.sum(axis=1).replace(0, np.nan), axis=0) * 100
+
+    # Expected cell counts are far below 5 here, so the chi-square approximation is invalid
+    # (Section 6.2, item 4): use the Fisher-Freeman-Halton exact test instead.
+    p_exact = ffh_exact_test(ct_raw)
+    _, _, cramers_v = chi2_with_cramers_v(ct_raw)
+    overall = df["Crash_Reaction"].value_counts(normalize=True).reindex(CRASH_ORDER, fill_value=0) * 100
+
     colors = ["#E74C3C", "#7F8C8D", "#27AE60"] # Sell (Red), Hold (Gray), Buy (Green)
     ct_pct.plot(kind="bar", stacked=True, color=colors, ax=ax, edgecolor="white", width=0.55)
-    
-    ax.set_title(f"Figure 3: Reaction to -40% Crash Across (S, R) Quadrants (Chi2 = {chi2:.2f}, p = {p:.4f}, V = {cramers_v:.2f})", 
-                 fontsize=12.5, fontweight="bold")
+
+    ax.set_title("Figure 3: Reaction to -40% Crash by (S, R) Quadrant (exploratory)", fontsize=13, fontweight="bold")
+    ax.text(0.5, -0.30,
+            f"Whole sample: Sell {overall['Sell']:.0f}%, Hold {overall['Hold']:.0f}%, Buy more {overall['Buy more']:.0f}%.   "
+            f"Fisher-Freeman-Halton exact p = {p_exact:.3f}, Cramer's V = {cramers_v:.2f}.\n"
+            "Cells are small; quadrant differences are descriptive only.",
+            transform=ax.transAxes, ha="center", va="top", fontsize=9.5)
     ax.set_ylabel("Proportion within Profile (%)", fontsize=11)
     ax.set_xlabel("Financial Profile Quadrant", fontsize=11)
     ax.set_xticks(range(len(order)))
-    ax.set_xticklabels(["High S, Low R\n(Unburdened)", 
-                        "Low S, Low R\n(Supported)", 
-                        "High S, High R\n(Committed)", 
-                        "Low S, High R\n(Working)"], rotation=0, fontsize=9.5, fontweight="bold")
+    ax.set_xticklabels(quadrant_ticklabels(df, order), rotation=0, fontsize=9.5, fontweight="bold")
     ax.set_ylim(0, 100)
     ax.legend(title="Action", bbox_to_anchor=(1.02, 1), loc="upper left")
     plt.savefig(filename, bbox_inches="tight")
@@ -320,6 +466,40 @@ def plot_fig4_validation_anchor(df, filename="fig4_validation_anchor.png"):
     ax.axvline(4, color="gray", linestyle="--", label="Risk Neutral Anchor (HL = 4)")
     
     ax.legend(loc="upper right", frameon=True, fontsize=9.5, title="Participant (S, R) Profile")
+    plt.savefig(filename, bbox_inches="tight")
+    plt.close()
+
+def premium_split(df):
+    """Per-participant gamble rate (%) on days where the gamble's EV is below, equal to, or above the sure option."""
+    return pd.DataFrame({g: df[[f"D{d}" for d in days]].isin(["B", "C"]).mean(axis=1) * 100
+                         for g, days in PREMIUM_GROUPS.items()}, index=df.index)
+
+def plot_fig5_premium_split(df, filename="fig5_premium_split.png"):
+    fig, ax = plt.subplots(figsize=(9.5, 6), dpi=300)
+    split = premium_split(df)
+    groups = list(PREMIUM_GROUPS)
+    cohorts = [("IT Professional", "#2ECC71"), ("Student", "#3498DB")]
+    x = np.arange(len(groups))
+    width = 0.36
+    for i, (cohort, color) in enumerate(cohorts):
+        sub = split[df["Cohort"] == cohort]
+        if sub.empty:
+            continue
+        means = sub.mean()
+        sems = sub.std(ddof=1) / np.sqrt(len(sub))
+        bars = ax.bar(x + (i - 0.5) * width, means, width, yerr=sems, capsize=4, color=color,
+                      edgecolor="black", linewidth=0.6, label=f"{cohort} (n = {len(sub)})")
+        for bar, m, se in zip(bars, means, sems.fillna(0)):
+            ax.text(bar.get_x() + bar.get_width() / 2, m + se + 2, f"{m:.0f}%", ha="center", va="bottom", fontsize=9.5)
+
+    ax.set_xticks(x)
+    ax.set_xticklabels([f"{g} premium\n(days {', '.join(map(str, PREMIUM_GROUPS[g]))})" for g in groups], fontsize=10)
+    ax.set_ylabel("Gamble rate (% of days choosing B or C)", fontsize=11)
+    ax.set_title("Figure 5: Gambling by EV Premium of the Gamble over the Sure Option", fontsize=13, fontweight="bold")
+    ax.text(0.5, -0.18, "Negative premium: the gamble has LOWER expected value than the sure option. Error bars: +/- 1 SE.",
+            transform=ax.transAxes, ha="center", va="top", fontsize=9.5)
+    ax.set_ylim(0, 110)
+    ax.legend(loc="upper left")
     plt.savefig(filename, bbox_inches="tight")
     plt.close()
 
@@ -423,7 +603,7 @@ def simulate_v2_data(n=120):
         # Cap S for students at 0.50 to reflect non-career income stability
         s_indiv = min(raw_s_indiv, 0.5) if c == "Student" else raw_s_indiv
         
-        dep_val = min(1.0, r1 / 3.0)
+        dep_val = min(1.0, 0.7 + 0.15 * (r1 - 1)) if r1 > 0 else 0.0
         cash_ratio_val = min(1.0, (r3 + r4) / max(1.0, r2))
         r_indiv = (dep_val + cash_ratio_val) / 2.0
         
@@ -552,8 +732,27 @@ def clean_responses(df, source):
     if n_dropped_dups > 0:
         print(f"Dropped {n_dropped_dups} duplicate response(s). Retained {len(df)} unique participants.")
 
-    print(f"Loaded {len(df)} complete responses from {source} ({n_total - len(df)} dropped: incomplete or duplicate).")
+    df = drop_dev_skip_rows(df)
+
+    print(f"Loaded {len(df)} complete responses from {source} ({n_total - len(df)} dropped: incomplete, duplicate, or test runs).")
     return df.reset_index(drop=True)
+
+# The developer "Skip Stages" tool (devEnsureDummyDays in js/game.js) fills every skipped day with this
+# fixed pattern, always at screen position 1. Option order is randomized, so a real participant picking
+# position 1 on all 15 days has probability (1/3)^15; rows with this fingerprint are test runs.
+DEV_SKIP_PATTERN = np.array(list("BCABCBABBCABCBA"))
+
+def drop_dev_skip_rows(df):
+    pos_cols = [f"pos_D{d}" for d in range(1, 16)]
+    if not all(c in df.columns for c in pos_cols):
+        return df
+    choices = df[DECISION_COLS].astype(str).apply(lambda c: c.str.strip()).values
+    all_pos_1 = (df[pos_cols].apply(pd.to_numeric, errors="coerce") == 1).all(axis=1).values
+    flagged = (choices == DEV_SKIP_PATTERN).all(axis=1) & all_pos_1
+    if flagged.any():
+        ids = df.loc[flagged, "id"].tolist() if "id" in df.columns else list(np.where(flagged)[0])
+        print(f"Excluded {flagged.sum()} Skip Stages test run(s) (placeholder choices, all at screen position 1): {ids}")
+    return df.loc[~flagged]
 
 def load_dotenv(path=Path(__file__).resolve().parent / ".env"):
     """Loads KEY=VALUE lines from .env into os.environ without overriding variables already set."""
@@ -598,35 +797,184 @@ def load_live_data():
 # 5. HYPOTHESIS TESTS
 # ==========================================
 
+def print_table(table, indent="      "):
+    for line in table.to_string(float_format=lambda v: f"{v:.3g}").splitlines():
+        print(indent + line)
+
 def run_hypothesis_tests(df):
-    print("\n[3] Hypothesis Tests:")
+    print("\n[3] Headline Hypotheses (Holm-corrected across H1-H3):")
 
-    r_sgp, p_sgp = stats.pearsonr(df["S"], df["GP"])
-    r_rgp, p_rgp = stats.pearsonr(df["R"], df["GP"])
-    print(f"  H1a Stability -> GP (Pearson): r = {r_sgp:+.3f}, p = {p_sgp:.4e} (Stability increases gambling)")
-    print(f"  H1b Responsibility -> GP (Pearson): r = {r_rgp:+.3f}, p = {p_rgp:.4e} (Debt/bills suppress gambling)")
+    # H1 (coupled): S and R jointly shape gambling, including their interaction. Predictors are centered.
+    s = df["S"] - df["S"].mean()
+    r = df["R"] - df["R"].mean()
+    y = df["GP"].values.astype(float)
+    h1, h1_r2, p_h1 = ols(y, np.column_stack([np.ones(len(df)), s, r, s * r]), ["Intercept", "S", "R", "S x R"])
 
-    lr = stats.linregress(df["S"], df["GP"])
-    h1_ok = lr.pvalue < 0.05 and lr.slope > 0
-    print(f"  H1 Stability -> GP (OLS): beta = {lr.slope:+.2f}, p = {lr.pvalue:.4e} -> {'supported' if h1_ok else 'not supported'}")
+    u, p_h2, delta = cohort_ambiguity_test(df)
+    p_h3, crash_v, crash_ct = cohort_crash_test(df)
 
-    u, p_u, delta = cohort_ambiguity_test(df)
-    if np.isnan(p_u):
+    raw_p = [p_h1, p_h2, p_h3]
+    valid = [i for i, p in enumerate(raw_p) if not np.isnan(p)]
+    adj = np.full(3, np.nan)
+    adj[valid] = holm([raw_p[i] for i in valid])
+
+    print(f"  H1 Coupled (S, R) -> GP (OLS: GP ~ S + R + S x R): R^2 = {h1_r2:.2f}, "
+          f"F-test p = {p_h1:.3g}, Holm p = {adj[0]:.3g}")
+    print_table(h1)
+    if np.isnan(p_h2):
         print("  H2 Cohort -> AS: not computable (one cohort has no complete responses yet)")
     else:
-        h2_ok = p_u < 0.05 and delta > 0
-        print(f"  H2 Cohort -> AS (Mann-Whitney U, IT vs. Student): U = {u:.0f}, p = {p_u:.4e}, Cliff's delta = {delta:+.3f} -> {'supported' if h2_ok else 'not supported'}")
-
-    chi2, p_chi, v = cohort_crash_test(df)
-    if np.isnan(p_chi):
-        print("  H3 Cohort -> Crash Reaction: not computable (crash table too sparse for chi-square)")
+        print(f"  H2 Cohort -> AS (Mann-Whitney U, IT vs. Student): U = {u:.0f}, p = {p_h2:.3g}, "
+              f"Holm p = {adj[1]:.3g}, Cliff's delta = {delta:+.2f}")
+    if np.isnan(p_h3):
+        print("  H3 Cohort -> Crash Reaction: not computable (crash table too sparse)")
     else:
-        print(f"  H3 Cohort -> Crash Reaction (chi-square): chi2 = {chi2:.2f}, p = {p_chi:.4e}, Cramer's V = {v:.2f}")
-        print("      (Chi-square approximation: some cells may be small, so treat p as indicative.)")
+        print(f"  H3 Cohort -> Crash Reaction (Fisher-Freeman-Halton exact): p = {p_h3:.3g}, "
+              f"Holm p = {adj[2]:.3g}, Cramer's V = {crash_v:.2f}")
+        print_table(crash_ct)
+
+    print("\n[4] Robustness and Planned Secondary Analyses:")
+
+    # Stability without the student cap, with cohort controlled (Section 6.2 lists S, R and cohort together).
+    sr = df["S_raw"] - df["S_raw"].mean()
+    rob, rob_r2, _ = ols(y, np.column_stack([np.ones(len(df)), sr, r, sr * r, is_it(df)]),
+                         ["Intercept", "S_raw", "R", "S_raw x R", "IT (vs Student)"])
+    print(f"  (a) GP ~ S_raw + R + S_raw x R + cohort (uncapped S, cohort controlled): R^2 = {rob_r2:.2f}")
+    print_table(rob)
+    for cohort in ["IT Professional", "Student"]:
+        sub = df[df["Cohort"] == cohort]
+        if len(sub) >= 5:
+            rho_s, p_s = stats.spearmanr(sub["S_raw"], sub["GP"])
+            rho_r, p_r = stats.spearmanr(sub["R"], sub["GP"])
+            print(f"      Within {cohort} (n = {len(sub)}): rho(S_raw, GP) = {rho_s:+.2f} (p = {p_s:.3g}), "
+                  f"rho(R, GP) = {rho_r:+.2f} (p = {p_r:.3g})")
+
+    # Gambling by EV premium: separates risk attitude from EV-maximizing.
+    split = premium_split(df)
+    print("  (b) Gamble rate by EV premium of the gamble (B/C) over the sure option (A):")
+    for g in PREMIUM_GROUPS:
+        it_vals, st_vals = split.loc[df["Cohort"] == "IT Professional", g], split.loc[df["Cohort"] == "Student", g]
+        line = f"      {g:<8} premium (days {PREMIUM_GROUPS[g]}): all {split[g].mean():5.1f}%"
+        if len(it_vals) and len(st_vals):
+            p_g = stats.mannwhitneyu(it_vals, st_vals).pvalue
+            line += (f" | IT {it_vals.mean():5.1f}% vs Student {st_vals.mean():5.1f}%, "
+                     f"Cliff's delta = {cliffs_delta(it_vals, st_vals):+.2f}, p = {p_g:.3g}")
+        rho, p_rho = stats.spearmanr(df["R"], split[g])
+        print(line + f" | rho(R, rate) = {rho:+.2f} (p = {p_rho:.3g})")
+
+    # Section 6.2 model 1: trial-level gamble vs safe, clustered by participant.
+    trials = build_trials(df)
+    covars = ["S", "R", "IT", "prem_neg", "prem_pos", "loss", "FL", "age", "male", "invest", "risk_will"]
+    labels = ["S", "R", "IT (vs Student)", "Negative premium (vs zero)", "Positive premium (vs zero)",
+              "Loss domain", "Financial literacy (0-3)", "Age (per SD)", "Male", "Any investing experience",
+              "Risk willingness (per SD)"]
+    keep = [c for c in covars if trials[c].nunique() > 1]
+    names = ["Intercept"] + [labels[covars.index(c)] for c in keep]
+    gamble = trials["choice"].isin(["B", "C"]).astype(float).values
+    X = np.column_stack([np.ones(len(trials))] + [trials[c].values for c in keep])
+    try:
+        print(f"  (c) Trial-level logit, gamble vs safe ({len(trials)} choices, {trials['pid'].nunique()} participants, "
+              "participant-clustered SEs):")
+        print_table(logit_cluster(gamble, X, trials["pid"], names))
+    except np.linalg.LinAlgError:
+        print("  (c) Trial-level logit: not estimable on this sample.")
+
+    # Section 6.2 model 2: among gamble choices, ambiguous (C) vs known risk (B). Premium is identical for B and C.
+    amb = trials[trials["choice"].isin(["B", "C"])]
+    keep_a = [c for c in keep if c not in ("prem_neg", "prem_pos") and amb[c].nunique() > 1]
+    names_a = ["Intercept"] + [labels[covars.index(c)] for c in keep_a]
+    try:
+        print(f"  (d) Trial-level logit, ambiguous C vs known-risk B ({len(amb)} gamble choices):")
+        print_table(logit_cluster((amb["choice"] == "C").astype(float).values,
+                                  np.column_stack([np.ones(len(amb))] + [amb[c].values for c in keep_a]),
+                                  amb["pid"], names_a))
+    except np.linalg.LinAlgError:
+        print("  (d) Ambiguity logit: not estimable on this sample.")
+
+    # Ambiguity Share against the neutral point of 50 (Section 6.1).
+    print("  (e) Ambiguity Share vs neutral 50 (one-sample Wilcoxon; < 50 = ambiguity averse):")
+    for label, sub in [("All", df), ("IT Professional", df[df["Cohort"] == "IT Professional"]),
+                       ("Student", df[df["Cohort"] == "Student"])]:
+        vals = sub["AS"].dropna()
+        if len(vals) >= 5 and (vals != 50).any():
+            print(f"      {label:<16} median AS = {vals.median():5.1f} (n = {len(vals)}), "
+                  f"p = {stats.wilcoxon(vals - 50).pvalue:.3g}")
+
+    # Day 5: the clean Ellsberg pair, analysed on its own (Section 6.1).
+    d5 = df[df["D5"].isin(["B", "C"])]
+    if len(d5):
+        it5 = d5["Cohort"] == "IT Professional"
+        n_c = int((d5["D5"] == "C").sum())
+        print(f"  (f) Day 5 Ellsberg urn: {n_c}/{len(d5)} gamblers chose the unstated urn "
+              f"(binomial vs 50%: p = {stats.binomtest(n_c, len(d5)).pvalue:.3g}); "
+              f"{int((df['D5'] == 'A').sum())} took the sure 300.")
+        if it5.any() and (~it5).any():
+            table = pd.crosstab(it5, d5["D5"] == "C").reindex(index=[True, False], columns=[True, False], fill_value=0)
+            print(f"      IT {table.loc[True, True]}/{table.loc[True].sum()} vs Student {table.loc[False, True]}/"
+                  f"{table.loc[False].sum()} chose the unstated urn (Fisher exact p = {stats.fisher_exact(table.values).pvalue:.3g})")
+
+    # Section 6.2 model 4: ordinal crash reaction (Sell < Hold < Buy more) by cohort.
+    crash_y = df["Crash_Reaction"].map({c: i for i, c in enumerate(CRASH_ORDER)}).values.astype(int)
+    if len(np.unique(crash_y)) == 3 and is_it(df).nunique() == 2:
+        print("  (g) Ordinal logit, crash reaction (Sell < Hold < Buy more); OR > 1 = more buying:")
+        print_table(ordinal_logit(crash_y, np.column_stack([is_it(df).values, df["R"].values]),
+                                  ["IT (vs Student)", "R"]))
 
     r_hl, p_hl = stats.pearsonr(df["HL_Safe_Count"], df["GP"])
     val_ok = r_hl < -0.30 and p_hl < 0.001
-    print(f"  External Validation (HL -> GP): r = {r_hl:+.3f}, p = {p_hl:.4e} -> {'pass' if val_ok else 'fail'} (criterion: r < -0.30, p < 0.001)")
+    print(f"  (h) External validation (Holt-Laury -> GP): r = {r_hl:+.3f}, p = {p_hl:.3g} -> "
+          f"{'pass' if val_ok else 'fail'} (pre-set criterion: r < -0.30, p < 0.001)")
+
+def run_data_quality_checks(df):
+    """Attention, response time, screen position, beliefs and debrief credibility. Skips fields the data lacks."""
+    print("\n[5] Data Quality and Instrument Checks:")
+    n = len(df)
+
+    if "C4" in df.columns:
+        passed = int((df["C4"].astype(str).str.strip() == "Sometimes").sum())
+        print(f"  Attention check (C4): {passed}/{n} correct. The game does not let participants continue "
+              "until it is answered correctly, so no exclusions are needed.")
+
+    rt_cols = [f"rt_D{d}" for d in range(1, 16)]
+    if all(c in df.columns for c in rt_cols):
+        rt = df[rt_cols].apply(pd.to_numeric, errors="coerce") / 1000.0
+        person_median = rt.median(axis=1)
+        print(f"  Response times: median {np.nanmedian(rt.values):.1f} s per decision; "
+              f"{int((person_median < 3).sum())}/{n} participants with a median under 3 s (possible rushing).")
+        safe_rt, gamble_rt = [], []
+        for i in df.index:
+            choices = df.loc[i, [f"D{d}" for d in SCORED_DAYS]].values
+            times = rt.loc[i, [f"rt_D{d}" for d in SCORED_DAYS]].values
+            is_safe = choices == "A"
+            if is_safe.any() and (~is_safe).any():
+                safe_rt.append(np.nanmedian(times[is_safe]))
+                gamble_rt.append(np.nanmedian(times[~is_safe]))
+        if len(safe_rt) >= 5:
+            print(f"      Safe vs gamble choices (within person, n = {len(safe_rt)}): median {np.median(safe_rt):.1f} s vs "
+                  f"{np.median(gamble_rt):.1f} s, Wilcoxon p = {stats.wilcoxon(safe_rt, gamble_rt).pvalue:.3g}")
+
+    pos_cols = [f"pos_D{d}" for d in range(1, 16)]
+    if all(c in df.columns for c in pos_cols):
+        pos = pd.Series(df[pos_cols].apply(pd.to_numeric, errors="coerce").values.ravel()).dropna().astype(int)
+        counts = pos.value_counts().reindex([1, 2, 3], fill_value=0)
+        print(f"  Screen position of chosen option (randomized order): top {counts[1]}, middle {counts[2]}, "
+              f"bottom {counts[3]}; chi-square vs equal = {stats.chisquare(counts.values).pvalue:.3g} "
+              "(non-significant = no position bias).")
+
+    if "belief_D5" in df.columns:
+        b5 = pd.to_numeric(df["belief_D5"], errors="coerce")
+        chose_c, chose_b = b5[df["D5"] == "C"].dropna(), b5[df["D5"] == "B"].dropna()
+        line = f"  Day 5 belief (own colour in the unstated urn, of 100): median {b5.median():.0f}"
+        if len(chose_c) >= 3 and len(chose_b) >= 3:
+            line += (f"; chose unstated urn {chose_c.median():.0f} vs stated urn {chose_b.median():.0f}, "
+                     f"Mann-Whitney p = {stats.mannwhitneyu(chose_c, chose_b).pvalue:.3g}")
+        print(line)
+
+    debrief = {"E1": "stated chances believable", "E2": "unstated chances fair", "E3": "treated credits as real money",
+               "E4": "familiar with the investments"}
+    if all(c in df.columns for c in debrief):
+        print("  Debrief (1-5 scale): " + "; ".join(
+            f"{c} {label} median {pd.to_numeric(df[c], errors='coerce').median():.0f}" for c, label in debrief.items()))
 
 # ==========================================
 # 6. EXECUTION
@@ -666,25 +1014,28 @@ if __name__ == "__main__":
     
     print("\n[2] Mean Behavioral Metrics by (S, R) Quadrant:")
     print("-------------------------------------------------------------------------------------------------")
-    print(f"{'Quadrant':<34} | {'S (Stab)':<8} | {'R (Resp)':<8} | {'GP (% Gamble)':<13} | {'AS (% Ambig)':<12} | {'HL Safe (Aversion)':<18}")
+    print(f"{'Quadrant':<34} | {'n':<3} | {'S (Stab)':<8} | {'S_raw':<6} | {'R (Resp)':<8} | {'GP (% Gamble)':<13} | {'AS (% Ambig)':<12} | {'HL Safe (Aversion)':<18}")
     print("-------------------------------------------------------------------------------------------------")
     for quad in ["High S, Low R (Unburdened IT)", "Low S, Low R (Supported Student)", "High S, High R (Committed IT)", "Low S, High R (Working Student)"]:
         sub = df[df["SR_Quadrant"] == quad]
-        s_m, r_m = sub["S"].mean(), sub["R"].mean()
+        s_m, sraw_m, r_m = sub["S"].mean(), sub["S_raw"].mean(), sub["R"].mean()
         gp_m = sub["GP"].mean()
         as_m = sub["AS"].mean()
         hl_m = sub["HL_Safe_Count"].mean()
-        print(f"{quad:<34} | {s_m:<8.2f} | {r_m:<8.2f} | {gp_m:<13.1f} | {as_m:<12.1f} | {hl_m:<18.2f}")
+        print(f"{quad:<34} | {len(sub):<3} | {s_m:<8.2f} | {sraw_m:<6.2f} | {r_m:<8.2f} | {gp_m:<13.1f} | {as_m:<12.1f} | {hl_m:<18.2f}")
     print("-------------------------------------------------------------------------------------------------")
+    print("NOTE: S caps students at 0.50 (questionnaire_2.md, Section 2B); S_raw is the uncapped score.")
     print("NOTE: 'GP' is Gamble Propensity (Higher = More Gambling). Expected: Q2 > Q1 >= Q3 > Q4")
     print("NOTE: 'HL Safe' is Holt-Laury Safe Choices (Higher = MORE RISK AVERSE = Less Gambling).")
     
     run_hypothesis_tests(df)
+    run_data_quality_checks(df)
 
-    print(f"\n[4] Generating High-Resolution Publication Figures in {PLOTS_DIR} ...")
+    print(f"\n[6] Generating High-Resolution Publication Figures in {PLOTS_DIR} ...")
     PLOTS_DIR.mkdir(exist_ok=True)
     plot_fig1_sr_landscape(df, PLOTS_DIR / "fig1_sr_landscape.png")
     plot_fig2_ambiguity_share(df, PLOTS_DIR / "fig2_ambiguity_share.png")
     plot_fig3_crash_reaction(df, PLOTS_DIR / "fig3_crash_reaction.png")
     plot_fig4_validation_anchor(df, PLOTS_DIR / "fig4_validation_anchor.png")
-    print("All 4 figures updated and saved successfully!")
+    plot_fig5_premium_split(df, PLOTS_DIR / "fig5_premium_split.png")
+    print("All 5 figures updated and saved successfully!")

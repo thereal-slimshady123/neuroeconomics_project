@@ -31,7 +31,8 @@ Derived from four specific items (S1 to S4) measuring cash flow predictability, 
 Separates moral dependency obligations from direct cash-flow commitments:
 
 1. **Dependency Burden ($\text{Dep}$):**
-   $$\text{Dep} = \min\left(1.0, \frac{R1}{3.0}\right) \in [0.0, 1.0]$$
+   $$\text{Dep} = \begin{cases} 0 & R1 = 0 \\ \min\left(1.0,\ 0.70 + 0.15\,(R1 - 1)\right) & R1 \ge 1 \end{cases} \in [0.0, 1.0]$$
+   *(1 dependent → 0.70, 2 → 0.85, 3+ → 1.00. Any dependent is a binding obligation, so Dep ≥ 0.70 guarantees $R \ge 0.35$, the High-R threshold, even when Cash = 0.)*
 2. **Cashflow Commitment Ratio ($\text{Cash}$):**
    $$\text{Cash} = \min\left(1.0, \frac{R3 + R4}{R2}\right) \in [0.0, 1.0]$$
    *(Where $R2 = \text{monthly money/income}$, $R3 = \text{fixed living costs paid personally}$, and $R4 = \text{monthly debt repayments/EMIs}$).*

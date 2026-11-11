@@ -759,7 +759,9 @@ class ExperimentApp {
     const r3 = parseFloat(p.R3) || 0;
     const r4 = p.R4;
     d.R1 = r1; d.R2 = r2; d.R3 = r3; d.R4 = r4;
-    const Dep = Math.min(1, r1 / 3);
+    // Any dependent is a binding obligation: 1 → 0.70, 2 → 0.85, 3+ → 1.0.
+    // Dep ≥ 0.70 guarantees R ≥ 0.35 (the High-R threshold) even with Cash = 0.
+    const Dep = r1 > 0 ? Math.min(1, 0.7 + 0.15 * (r1 - 1)) : 0;
     const Cash = r2 > 0 ? Math.min(1, (r3 + r4) / r2) : 0;
     const R = (Dep + Cash) / 2;
     d.Dep = +Dep.toFixed(4); d.Cash = +Cash.toFixed(4); d.R = +R.toFixed(4);
