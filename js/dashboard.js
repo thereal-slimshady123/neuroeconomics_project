@@ -11,7 +11,7 @@ const CHOICES = [
   { code: "C", label: "Ambiguous", color: "#9B59B6" }
 ];
 const COHORT_COLORS = { "Student": "#3498DB", "IT Professional": "#E67E22" };
-const S_THRESHOLD = 0.65; // same cut-offs as analyze_results.py
+const S_THRESHOLD = 0.5; // same cut-offs as analyze_results.py
 const R_THRESHOLD = 0.35;
 const PLOT_CONFIG = { responsive: true, displayModeBar: false };
 const PLOT_LAYOUT = {

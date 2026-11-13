@@ -19,6 +19,7 @@ import seaborn as sns
 from scipy import special, stats
 from scipy.optimize import minimize
 from matplotlib.patches import Ellipse
+from matplotlib.lines import Line2D
 
 # Set publication aesthetics
 sns.set_theme(style="whitegrid", font="DejaVu Sans")
@@ -55,7 +56,7 @@ def compute_intake_scores(df):
     # income (stipends/allowances) and prevent misclassification into "High S, Low R (Unburdened IT)".
     is_student = df["Cohort"].astype(str).str.strip().str.lower().str.contains("student")
     df["S"] = np.where(is_student, np.minimum(raw_s, 0.5), raw_s)
-    
+
     # R: Financial Responsibility
     # Any dependent is a binding obligation: 1 -> 0.70, 2 -> 0.85, 3+ -> 1.0.
     # Dep >= 0.70 guarantees R >= 0.35 (the High-R threshold) even with Cash = 0.
@@ -68,13 +69,15 @@ def compute_intake_scores(df):
     df["FL_Score"] = (df["FL1"] == 1).astype(int) + (df["FL2"] == 1).astype(int) + (df["FL3"] == 1).astype(int)
     
     # Assign (S, R) Quadrants cleanly
-    s_threshold = 0.65
+    # High S means S above 0.5. Strictly above, because students are capped at exactly 0.5.
+    s_threshold = 0.5
     r_threshold = 0.35
+    high_s = df["S"] > s_threshold
     conditions = [
-        (df["S"] >= s_threshold) & (df["R"] < r_threshold),
-        (df["S"] < s_threshold) & (df["R"] < r_threshold),
-        (df["S"] >= s_threshold) & (df["R"] >= r_threshold),
-        (df["S"] < s_threshold) & (df["R"] >= r_threshold)
+        high_s & (df["R"] < r_threshold),
+        ~high_s & (df["R"] < r_threshold),
+        high_s & (df["R"] >= r_threshold),
+        ~high_s & (df["R"] >= r_threshold)
     ]
     choices = [
         "High S, Low R (Unburdened IT)",
@@ -299,8 +302,9 @@ def cohort_crash_test(df):
     _, _, cramers_v = chi2_with_cramers_v(ct)
     return ffh_exact_test(ct), cramers_v, ct
 
-def add_confidence_ellipse(ax, x, y, color):
-    """95% covariance ellipse (chi-square, 2 dof) around a group's (x, y) points."""
+def add_confidence_ellipse(ax, x, y, color, linestyle="--"):
+    """95% covariance ellipse (chi-square, 2 dof) around a group's (x, y) points.
+    Edge only (no fill) so the ellipse never tints the Gamble-Propensity colour of the points."""
     cov = np.cov(x, y)
     vals, vecs = np.linalg.eigh(cov)
     order = vals.argsort()[::-1]
@@ -308,13 +312,23 @@ def add_confidence_ellipse(ax, x, y, color):
     angle = np.degrees(np.arctan2(vecs[1, 0], vecs[0, 0]))
     width, height = 2 * np.sqrt(vals * 5.991)
     ax.add_patch(Ellipse(xy=(np.mean(x), np.mean(y)), width=width, height=height, angle=angle,
-                         fill=False, edgecolor=color, linewidth=2, linestyle="--", zorder=5))
+                         fill=False, edgecolor=color, linewidth=2.6, linestyle=linestyle, zorder=5))
+
+# Per-quadrant encoding for Figure 1: each cluster differs in colour, marker shape and
+# ellipse line style, so clusters can be told apart even where ellipses overlap
+# (and in greyscale / for colour-blind readers).
+QUADRANT_STYLE = {
+    "Low S, Low R (Supported Student)": dict(code="Q1", name="Supported Students", marker="o", ls="-"),
+    "High S, Low R (Unburdened IT)":    dict(code="Q2", name="Unburdened IT Pros", marker="s", ls=(0, (6, 3))),
+    "High S, High R (Committed IT)":    dict(code="Q3", name="Committed IT Pros",  marker="D", ls=(0, (1.5, 2))),
+    "Low S, High R (Working Student)":  dict(code="Q4", name="Working Students",   marker="^", ls=(0, (7, 2.5, 1.5, 2.5))),
+}
 
 def plot_fig1_sr_landscape(df, filename="fig1_sr_landscape.png"):
     fig, ax = plt.subplots(figsize=(9.5, 7.5), dpi=300)
     
     # Quadrant dividing lines
-    ax.axvline(0.65, color="#7F8C8D", linestyle="--", alpha=0.5, lw=1.2)
+    ax.axvline(0.5, color="#7F8C8D", linestyle="--", alpha=0.5, lw=1.2)
     ax.axhline(0.35, color="#7F8C8D", linestyle="--", alpha=0.5, lw=1.2)
     
     # Quadrant Text Labels
@@ -327,31 +341,47 @@ def plot_fig1_sr_landscape(df, filename="fig1_sr_landscape.png"):
     ax.text(0.85, 0.15, "Q2: High S, Low R\n(Unburdened IT Pros)", fontsize=11, fontweight="bold",
             color="#27AE60", ha="center", va="center", bbox=dict(boxstyle="round,pad=0.4", fc="white", alpha=0.9, ec="#27AE60"))
     
-    # Centroids per Quadrant (plotted with zorder=4 so data dots remain visible on top)
-    for quad, color in QUADRANT_PALETTE.items():
-        sub = df[df["SR_Quadrant"] == quad].dropna(subset=["S", "R"])
-        if len(sub) < 1:
-            continue
-        mean_s, mean_r = sub["S"].mean(), sub["R"].mean()
-        ax.scatter(mean_s, mean_r, marker="*", s=360, color=color, edgecolor="black", lw=1.2,
-                   label=f"Centroid ({mean_s:.2f}, {mean_r:.2f})", zorder=4, alpha=0.75)
-        if len(sub) >= 3:
-            add_confidence_ellipse(ax, sub["S"], sub["R"], color)
-
     # Add slight jitter for visualization so coinciding/overlapping dots are visible
     rng = np.random.RandomState(42)
     s_plot = df["S"] + rng.uniform(-0.007, 0.007, size=len(df))
     r_plot = df["R"] + rng.uniform(-0.007, 0.007, size=len(df))
 
-    # Scatter points colored by continuous Gamble Propensity (plotted on top of centroids)
-    scatter = ax.scatter(
-        s_plot, r_plot, 
-        c=df["GP"], 
-        cmap="coolwarm", s=120, alpha=0.92, edgecolors="black", linewidth=0.8,
-        zorder=6
-    )
-    cbar = plt.colorbar(scatter, ax=ax, pad=0.02)
-    cbar.set_label("Gamble Propensity (% Gambles Chosen)", fontsize=11)
+    # Per quadrant: tinted 95% ellipse, then points whose FILL encodes Gamble Propensity
+    # and whose SHAPE encodes quadrant membership (neutral black outline so the fill reads true).
+    gp_norm = plt.Normalize(vmin=0, vmax=100)
+    legend_handles = []
+    scatter = None
+    for quad, style in QUADRANT_STYLE.items():  # Q1..Q4 order, so the legend reads in order
+        color = QUADRANT_PALETTE[quad]
+        mask =(df["SR_Quadrant"] == quad) & df["S"].notna() & df["R"].notna()
+        sub = df[mask]
+        if len(sub) < 1:
+            continue
+        if len(sub) >= 3:
+            add_confidence_ellipse(ax, sub["S"], sub["R"], color, linestyle=style["ls"])
+        scatter = ax.scatter(s_plot[mask], r_plot[mask], c=sub["GP"], cmap="coolwarm", norm=gp_norm,
+                             marker=style["marker"], s=130, alpha=0.95,
+                             edgecolors="black", linewidths=0.9, zorder=6)
+
+        # Centroid star with a quadrant tag beside it, drawn above the points
+        mean_s, mean_r = sub["S"].mean(), sub["R"].mean()
+        ax.scatter(mean_s, mean_r, marker="*", s=420, color=color, edgecolor="black", lw=1.3, zorder=8)
+        ax.annotate(style["code"], (mean_s, mean_r), xytext=(9, 7), textcoords="offset points",
+                    fontsize=10, fontweight="bold", color="black", zorder=9,
+                    bbox=dict(boxstyle="round,pad=0.15", fc=color, ec="black", lw=0.8, alpha=0.9))
+
+        legend_handles.append(Line2D(
+            [0], [0], color=color, linestyle=style["ls"], linewidth=2.6,
+            marker=style["marker"], markersize=9, markerfacecolor="white",
+            markeredgecolor="black", markeredgewidth=1.2,
+            label=f"{style['code']} {style['name']} (n = {len(sub)}) · centroid ({mean_s:.2f}, {mean_r:.2f})"))
+
+    if scatter is not None:
+        cbar = plt.colorbar(plt.cm.ScalarMappable(norm=gp_norm, cmap="coolwarm"), ax=ax, pad=0.02)
+        cbar.set_label("Gamble Propensity (% Gambles Chosen) - point fill", fontsize=11)
+    legend_handles.append(Line2D([0], [0], linestyle="none", marker="*", markersize=15,
+                                 markerfacecolor="#BBBBBB", markeredgecolor="black",
+                                 label="Quadrant centroid (star)"))
 
     # Fitted Logistic Boundary (GP >= 50%)
     try:
@@ -372,8 +402,10 @@ def plot_fig1_sr_landscape(df, filename="fig1_sr_landscape.png"):
             r_boundary = -(w0 + w1 * s_vals) / w2
             valid_mask = (r_boundary >= 0) & (r_boundary <= 1)
             if np.any(valid_mask):
-                ax.plot(s_vals[valid_mask], r_boundary[valid_mask], color="#2C3E50", 
-                        linestyle="-.", linewidth=2.5, label="50% Gamble Boundary", zorder=7)
+                ax.plot(s_vals[valid_mask], r_boundary[valid_mask], color="#2C3E50",
+                        linestyle="-.", linewidth=2.5, zorder=7)
+                legend_handles.append(Line2D([0], [0], color="#2C3E50", linestyle="-.", linewidth=2.5,
+                                             label="Fitted 50% gamble boundary"))
     except Exception:
         pass
 
@@ -382,14 +414,20 @@ def plot_fig1_sr_landscape(df, filename="fig1_sr_landscape.png"):
     ax.set_ylabel("Financial Responsibility Score (R) [0 = Low Bills, 1 = Heavy Debt / Bills]", fontsize=11)
     ax.set_xlim(-0.02, 1.02)
     ax.set_ylim(-0.02, 1.02)
-    ax.legend(loc="upper left", bbox_to_anchor=(0.01, 0.72), frameon=True, fontsize=9.5)
+    # Legend sits below the axes so it never hides points or ellipses
+    ax.legend(handles=legend_handles, loc="upper center", bbox_to_anchor=(0.5, -0.11), ncol=2,
+              frameon=True, fontsize=9, handlelength=3.2,
+              title="Cluster = marker shape + ellipse colour/line style (95% ellipse); point fill = Gamble Propensity",
+              title_fontsize=9.5)
     plt.savefig(filename, bbox_inches="tight")
     plt.close()
 
-def plot_fig2_ambiguity_share(df, filename="fig2_ambiguity_share.png"):
+def plot_fig2_ambiguity_share(df, filename="fig2_ambiguity_share.png", show_stats=True):
     fig, ax = plt.subplots(figsize=(9.5, 6), dpi=300)
     
-    clean_df = df.dropna(subset=["AS"])
+    # People who never gambled have no gambles to split (AS undefined); they never chose hidden odds,
+    # so they are plotted at 0 and counted in n. The statistical tests still leave them out.
+    clean_df = df.assign(AS=df["AS"].fillna(0.0))
     order = list(QUADRANT_PALETTE.keys())
     
     sns.boxplot(data=clean_df, x="SR_Quadrant", y="AS", order=order, palette=QUADRANT_PALETTE,
@@ -399,10 +437,11 @@ def plot_fig2_ambiguity_share(df, filename="fig2_ambiguity_share.png"):
     
     ax.axhline(50.0, color="#7F8C8D", linestyle="--", linewidth=1.5, label="Neutrality (AS = 50%)")
 
-    u, p_u, delta = cohort_ambiguity_test(df)
-    ax.text(0.5, 0.97, f"Mann-Whitney U (IT vs. Student) = {u:.0f}, p = {p_u:.2e}\nCliff's delta = {delta:+.2f}",
-            transform=ax.transAxes, ha="center", va="top", fontsize=9.5,
-            bbox=dict(boxstyle="round,pad=0.4", fc="white", ec="#7F8C8D", alpha=0.9))
+    if show_stats:  # off for presentation copies
+        u, p_u, delta = cohort_ambiguity_test(df)
+        ax.text(0.5, 0.97, f"Mann-Whitney U (IT vs. Student) = {u:.0f}, p = {p_u:.2e}\nCliff's delta = {delta:+.2f}",
+                transform=ax.transAxes, ha="center", va="top", fontsize=9.5,
+                bbox=dict(boxstyle="round,pad=0.4", fc="white", ec="#7F8C8D", alpha=0.9))
 
     ax.set_title("Figure 2: Ambiguity Share Across (S, R) Financial Profiles", fontsize=13, fontweight="bold")
     ax.set_ylabel("Ambiguity Share (% Gambles on Option C)", fontsize=11)
@@ -414,7 +453,7 @@ def plot_fig2_ambiguity_share(df, filename="fig2_ambiguity_share.png"):
     plt.savefig(filename, bbox_inches="tight")
     plt.close()
 
-def plot_fig3_crash_reaction(df, filename="fig3_crash_reaction.png"):
+def plot_fig3_crash_reaction(df, filename="fig3_crash_reaction.png", show_stats=True):
     fig, ax = plt.subplots(figsize=(9.5, 6), dpi=300)
     
     order = list(QUADRANT_PALETTE.keys())
@@ -431,9 +470,10 @@ def plot_fig3_crash_reaction(df, filename="fig3_crash_reaction.png"):
     ct_pct.plot(kind="bar", stacked=True, color=colors, ax=ax, edgecolor="white", width=0.55)
 
     ax.set_title("Figure 3: Reaction to -40% Crash by (S, R) Quadrant (exploratory)", fontsize=13, fontweight="bold")
+    test_txt = f"Fisher-Freeman-Halton exact p = {p_exact:.3f}, Cramer's V = {cramers_v:.2f}." if show_stats else ""
     ax.text(0.5, -0.30,
             f"Whole sample: Sell {overall['Sell']:.0f}%, Hold {overall['Hold']:.0f}%, Buy more {overall['Buy more']:.0f}%.   "
-            f"Fisher-Freeman-Halton exact p = {p_exact:.3f}, Cramer's V = {cramers_v:.2f}.\n"
+            f"{test_txt}\n"
             "Cells are small; quadrant differences are descriptive only.",
             transform=ax.transAxes, ha="center", va="top", fontsize=9.5)
     ax.set_ylabel("Proportion within Profile (%)", fontsize=11)
@@ -445,21 +485,29 @@ def plot_fig3_crash_reaction(df, filename="fig3_crash_reaction.png"):
     plt.savefig(filename, bbox_inches="tight")
     plt.close()
 
-def plot_fig4_validation_anchor(df, filename="fig4_validation_anchor.png"):
+def plot_fig4_validation_anchor(df, filename="fig4_validation_anchor.png", show_stats=True):
     fig, ax = plt.subplots(figsize=(9, 6.5), dpi=300)
     
     # Regression line
     sns.regplot(data=df, x="HL_Safe_Count", y="GP", scatter=False, 
                 line_kws={"color": "#2C3E50", "linewidth": 2.2, "linestyle": "-"}, ax=ax)
     
+    # People with identical (HL, GP) would hide behind each other: spread each stack side by side
+    # (HL is a whole number, so a small sideways shift can't be misread). The fit uses exact values.
+    pos = df[["HL_Safe_Count", "GP"]].round(6)
+    rank = pos.groupby(["HL_Safe_Count", "GP"]).cumcount()
+    size = pos.groupby(["HL_Safe_Count", "GP"])["GP"].transform("size")
+    hl_plot = df["HL_Safe_Count"] + (rank - (size - 1) / 2) * 0.17
+
     for quad, color in QUADRANT_PALETTE.items():
-        sub = df[df["SR_Quadrant"] == quad]
-        ax.scatter(sub["HL_Safe_Count"], sub["GP"], color=color, alpha=0.85, s=85, 
-                   edgecolor="white", linewidth=0.5, label=quad)
+        m = df["SR_Quadrant"] == quad
+        ax.scatter(hl_plot[m], df.loc[m, "GP"], color=color, alpha=0.9, s=85,
+                   edgecolor="white", linewidth=0.8, label=f"{quad} (n = {m.sum()})")
         
     r, p = stats.pearsonr(df["HL_Safe_Count"], df["GP"])
     
-    ax.set_title(f"Figure 4: Game Risk Validation vs. Holt-Laury Anchor (r = {r:.2f}, p = {p:.4e})", 
+    stats_txt = f" (r = {r:.2f}, p = {p:.4e})" if show_stats else ""  # no r or p on presentation copies
+    ax.set_title(f"Figure 4: Game Risk Validation vs. Holt-Laury Anchor{stats_txt}",
                  fontsize=13, fontweight="bold")
     ax.set_xlabel("Holt-Laury Safe Choices Count (0 = High Risk-Seeking, 10 = High Aversion)", fontsize=11)
     ax.set_ylabel("Game Gamble Propensity (% Gambles Chosen)", fontsize=11)
@@ -925,6 +973,75 @@ def run_hypothesis_tests(df):
     print(f"  (h) External validation (Holt-Laury -> GP): r = {r_hl:+.3f}, p = {p_hl:.3g} -> "
           f"{'pass' if val_ok else 'fail'} (pre-set criterion: r < -0.30, p < 0.001)")
 
+# Power analysis (questionnaire.md, Section 6.4). Cohen's conventions for a medium effect: d = 0.5, w = 0.3, f2 = 0.15.
+# Mann-Whitney is treated as a t-test with asymptotic relative efficiency 0.955 (normal data).
+POWER, ALPHA, MW_ARE = 0.80, 0.05, 0.955
+
+def power_ttest(d, n1, n2, alpha=ALPHA):
+    df_ = n1 + n2 - 2
+    nc = d * np.sqrt(MW_ARE * n1 * n2 / (n1 + n2))
+    crit = stats.t.ppf(1 - alpha / 2, df_)
+    return 1 - stats.nct.cdf(crit, df_, nc) + stats.nct.cdf(-crit, df_, nc)
+
+def power_chi2(w, n, dof, alpha=ALPHA):
+    return 1 - stats.ncx2.cdf(stats.chi2.ppf(1 - alpha, dof), dof, w * w * n)
+
+def power_ftest(f2, n, k, alpha=ALPHA):
+    df2 = n - k - 1
+    return 1 - stats.ncf.cdf(stats.f.ppf(1 - alpha, k, df2), k, df2, f2 * n) if df2 > 0 else np.nan
+
+def solve_min(fn, grid):
+    """First value on the grid where fn reaches the target power."""
+    return next((x for x in grid if fn(x) >= POWER), np.nan)
+
+def cliffs_to_d(delta):
+    """Cliff's delta to Cohen's d, assuming two normal groups with equal variance."""
+    return np.sqrt(2) * stats.norm.ppf((delta + 1) / 2)
+
+def run_power_analysis(df):
+    print(f"\n[3b] Power and Sensitivity (alpha = {ALPHA}, two-sided, target power = {POWER:.0%}):")
+    n = len(df)
+    n_it = int((df["Cohort"] == "IT Professional").sum())
+    n_st = int((df["Cohort"] == "Student").sum())
+    holm_alpha = ALPHA / 3   # strictest Holm step across H1-H3
+
+    # Observed effects, on the same scale as the power calculations.
+    s, r = df["S"] - df["S"].mean(), df["R"] - df["R"].mean()
+    _, r2, _ = ols(df["GP"].values.astype(float), np.column_stack([np.ones(n), s, r, s * r]), ["I", "S", "R", "SxR"])
+    _, _, delta = cohort_ambiguity_test(df)
+    _, crash_v, crash_ct = cohort_crash_test(df)
+    obs = {"H1": r2 / (1 - r2), "H2": abs(cliffs_to_d(delta)) if not np.isnan(delta) else np.nan,
+           "H3": crash_v * np.sqrt(min(crash_ct.shape) - 1) if not np.isnan(crash_v) else np.nan}
+
+    rows = [
+        ("H1 S, R -> GP (OLS, 3 predictors)", "f2", 0.15,
+         solve_min(lambda m: power_ftest(0.15, m, 3), range(10, 2000)),
+         solve_min(lambda m: power_ftest(0.15, m, 3, holm_alpha), range(10, 2000)),
+         f"N = {n}", power_ftest(0.15, n, 3),
+         solve_min(lambda e: power_ftest(e, n, 3), np.arange(0.01, 5, 0.01)), obs["H1"]),
+        ("H2 Cohort -> AS (Mann-Whitney)", "d", 0.5,
+         solve_min(lambda m: power_ttest(0.5, m, m), range(5, 2000)),
+         solve_min(lambda m: power_ttest(0.5, m, m, holm_alpha), range(5, 2000)),
+         f"{n_it} vs {n_st}", power_ttest(0.5, n_it, n_st) if n_it and n_st else np.nan,
+         solve_min(lambda e: power_ttest(e, n_it, n_st), np.arange(0.01, 5, 0.01)) if n_it and n_st else np.nan,
+         obs["H2"]),
+        ("H3 Cohort -> Crash (2 x 3 table)", "w", 0.3,
+         solve_min(lambda m: power_chi2(0.3, m, 2), range(10, 2000)),
+         solve_min(lambda m: power_chi2(0.3, m, 2, holm_alpha), range(10, 2000)),
+         f"N = {n}", power_chi2(0.3, n, 2),
+         solve_min(lambda e: power_chi2(e, n, 2), np.arange(0.01, 2, 0.01)), obs["H3"]),
+    ]
+    print(f"  {'Hypothesis':<36} | {'Needed (medium)':<16} | {'Holm-strict':<11} | {'Have':<9} | "
+          f"{'Power now':<9} | {'Smallest detectable':<19} | {'Observed':<8} | Verdict")
+    for name, metric, medium, need, need_holm, have, pw, mde, seen in rows:
+        unit = "/group" if metric == "d" else ""
+        verdict = ("n/a" if np.isnan(seen) else
+                   "effect above detectable size" if seen >= mde else "underpowered for this effect")
+        print(f"  {name:<36} | {f'{need}{unit} ({metric}={medium})':<16} | {f'{need_holm}{unit}':<11} | {have:<9} | "
+              f"{pw:<9.2f} | {f'{metric} = {mde:.2f}':<19} | {f'{metric} = {seen:.2f}':<8} | {verdict}")
+    print("  NOTE: 'Observed' H2 converts Cliff's delta to d (normal approximation); H3 uses Cohen's w = Cramer's V here.")
+    print("  NOTE: an underpowered non-significant result is inconclusive, not evidence of no effect.")
+
 def run_data_quality_checks(df):
     """Attention, response time, screen position, beliefs and debrief credibility. Skips fields the data lacks."""
     print("\n[5] Data Quality and Instrument Checks:")
@@ -986,7 +1103,9 @@ if __name__ == "__main__":
     source.add_argument("--data", help="Exported responses (.xlsx or .csv).")
     source.add_argument("--live", action="store_true", help="Fetch the current responses from the Google Sheet.")
     parser.add_argument("--sheet", default=None, help="Sheet name when reading an Excel workbook (e.g. 'Responses', 'Simulation Runs'). Defaults to 'Responses' if present, else first sheet.")
+    parser.add_argument("--no-stats", action="store_true", help="Presentation copies: leave r, p and test values off every figure.")
     args = parser.parse_args()
+    show = not args.no_stats
 
     print("=============================================================")
     if args.live:
@@ -1029,13 +1148,14 @@ if __name__ == "__main__":
     print("NOTE: 'HL Safe' is Holt-Laury Safe Choices (Higher = MORE RISK AVERSE = Less Gambling).")
     
     run_hypothesis_tests(df)
+    run_power_analysis(df)
     run_data_quality_checks(df)
 
     print(f"\n[6] Generating High-Resolution Publication Figures in {PLOTS_DIR} ...")
     PLOTS_DIR.mkdir(exist_ok=True)
     plot_fig1_sr_landscape(df, PLOTS_DIR / "fig1_sr_landscape.png")
-    plot_fig2_ambiguity_share(df, PLOTS_DIR / "fig2_ambiguity_share.png")
-    plot_fig3_crash_reaction(df, PLOTS_DIR / "fig3_crash_reaction.png")
-    plot_fig4_validation_anchor(df, PLOTS_DIR / "fig4_validation_anchor.png")
+    plot_fig2_ambiguity_share(df, PLOTS_DIR / "fig2_ambiguity_share.png", show_stats=show)
+    plot_fig3_crash_reaction(df, PLOTS_DIR / "fig3_crash_reaction.png", show_stats=show)
+    plot_fig4_validation_anchor(df, PLOTS_DIR / "fig4_validation_anchor.png", show_stats=show)
     plot_fig5_premium_split(df, PLOTS_DIR / "fig5_premium_split.png")
     print("All 5 figures updated and saved successfully!")

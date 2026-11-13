@@ -67,6 +67,51 @@ function doGet(e) {
   return reply_({ ok: true, rows: rows });
 }
 
+/**
+ * Run once from the Apps Script editor (pick "recomputeScores", press Run) to rewrite the stored
+ * P, D, Buffer, S, S_raw, Dep, Cash, R and SR_Quadrant columns for EVERY row with the current
+ * formulas, so the sheet matches analyze_results.py. Run it again after editing any S1-S4 / R1-R4 answer.
+ * It only reads the answer columns and only writes the score columns.
+ */
+function recomputeScores() {
+  const sheet = getSheet_();
+  const headers = ensureHeaders_(sheet, ["S_raw", "SR_Quadrant"]);
+  const n = sheet.getLastRow() - 1;
+  if (n < 1) return;
+  const data = sheet.getRange(2, 1, n, headers.length).getValues();
+  const col = name => headers.indexOf(name);
+  const num = v => (v === "" || v === null || isNaN(Number(v))) ? NaN : Number(v);
+  const s4Map = { "No": 0, "Partially": 0.5, "Yes": 1 };
+  const r4 = x => Math.round(x * 10000) / 10000;
+
+  data.forEach(row => {
+    const s1 = num(row[col("S1")]), s2 = num(row[col("S2")]), s3 = num(row[col("S3")]);
+    const s4raw = String(row[col("S4")]).trim();
+    const s4 = s4raw in s4Map ? s4Map[s4raw] : num(s4raw);
+    const R1 = num(row[col("R1")]), R2 = num(row[col("R2")]), R3 = num(row[col("R3")]), R4 = num(row[col("R4")]);
+    if ([s1, s2, s3, s4, R1, R2, R3, R4].some(isNaN)) return;  // incomplete row: leave as is
+
+    const P = (s1 - 1) / 4;
+    const D = 1 - s2 / 12;
+    const Buffer = 1 - (1 - Math.min(1, s3 / 12)) * (1 - s4);
+    const S_raw = (P + D + Buffer) / 3;
+    const isStudent = String(row[col("cohort")]).toLowerCase().indexOf("student") !== -1;
+    const S = isStudent ? Math.min(S_raw, 0.5) : S_raw;
+    const Dep = R1 > 0 ? Math.min(1, 0.7 + 0.15 * (R1 - 1)) : 0;
+    const Cash = R2 > 0 ? Math.min(1, (R3 + R4) / R2) : 0;
+    const R = (Dep + Cash) / 2;
+    // Same cut-offs as analyze_results.py: high S is ABOVE 0.5 (students are capped at exactly 0.5).
+    const highS = S > 0.5, highR = R >= 0.35;
+    const quad = highS ? (highR ? "High S, High R (Committed IT)" : "High S, Low R (Unburdened IT)")
+                       : (highR ? "Low S, High R (Working Student)" : "Low S, Low R (Supported Student)");
+
+    const out = { P: r4(P), D: r4(D), Buffer: r4(Buffer), S: r4(S), S_raw: r4(S_raw),
+                  Dep: r4(Dep), Cash: r4(Cash), R: r4(R), SR_Quadrant: quad };
+    Object.keys(out).forEach(k => { if (col(k) !== -1) row[col(k)] = out[k]; });
+  });
+  sheet.getRange(2, 1, n, headers.length).setValues(data);
+}
+
 function getSheet_() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   return ss.getSheetByName(SHEET_NAME) || ss.insertSheet(SHEET_NAME);
