@@ -16,17 +16,16 @@ A web game saved each response to a Google Sheet. We got 43 submissions between 
 |---|---|---|
 | Age, mean (range) | 20.0 (18–23) | 33.6 (21–59) |
 | Gender | 18 male, 2 female, 2 other/undisclosed | 12 female, 8 male |
-| Main income | 16 parental allowance, 3 part-time, 3 scholarship | 19 full-time salary, 1 other |
 | No investing experience | 13 | 1 |
 
 *Table 1. Participant characteristics.*
 
 ### 2.2 The game
 
-After consent, participants filled in a profile (demographics, financial literacy, the S and R questions, comprehension and attention checks), did a 10-row Holt–Laury risk test (we count the safe choices: 4 is risk-neutral, more is risk-averse), played 15 "days" and answered a short reflection.
+After consent, participants filled in a profile (demographics, financial literacy, the S and R questions, comprehension and attention checks), did a 10-row Holt–Laury risk test (safe choices counted: 4 is risk-neutral, more is risk-averse), played 15 "days" and answered a short reflection.
 
 - **Daily decisions.** Each day offers **A**, a sure amount; **B**, a gamble with stated odds; or **C**, the *same prizes as B* with the odds hidden. The order is random, days are independent, and no outcomes are shown.
-- **Design.** The gamble beats the sure option on average on seven days, ties on four and loses on three (Days 3, 6, 12), so gambling is not automatically rewarded. Day 5 is an Ellsberg urn pair and Day 8 is a 40% market crash (sell, hold or buy more). Four days also asked for the person's estimated chance in the hidden option.
+- **Design.** The gamble beats the sure option on average on seven days, ties on four and loses on three (Days 3, 6, 12). Day 5 is an Ellsberg urn pair and Day 8 is a 40% market crash (sell, hold or buy more). Four days also asked for the person's estimated chance in the hidden option.
 
 ### 2.3 Measures
 
@@ -40,13 +39,13 @@ After consent, participants filled in a profile (demographics, financial literac
 
 ### 2.4 Analysis
 
-Three headline tests, Holm-corrected: **H1**, GP on S, R and their interaction (OLS); **H2**, IT professionals vs students on AS (Mann–Whitney U); **H3**, Day 8 reaction by cohort (exact test). We also checked robustness and ran a power analysis (80% power, α = 0.05).
+Three headline tests, Holm-corrected: **H1**, GP on S, R and their interaction (OLS); **H2**, IT professionals vs students on AS (Mann–Whitney U); **H3**, Day 8 reaction by cohort (exact test). Secondary checks are Holm-corrected within each family of related tests. Correcting all 20 together would keep the R and hidden-odds results significant, but not the IT-versus-student gambling gap or student-only correlations. We also ran a power analysis (80% power, α = 0.05).
 
 ## 3. Results
 
-**3.1 Validity.** People who made more safe Holt–Laury choices gambled less in the game (**r = −0.46, p = 0.002**). This meets our r < −0.30 benchmark but not the p < 0.001 in our analysis script. All 42 passed the attention check, and the median rating for "I treated credits like real money" was 4 of 5.
+**3.1 Validity.** People who made more safe Holt–Laury choices gambled less in the game (**r = −0.46**, p = 0.002, Holm p = 0.006). This meets our r < −0.30 benchmark but not the p < 0.001 in our analysis script. All 42 passed the attention check, and the median "treated credits like real money" rating was 4 of 5.
 
-**3.2 Main result (H1).** From the least to the most stable income (S, 0 to 1), the gamble rate rises by about **63 percentage points** (95% CI 36 to 91, p < 0.001). From the least to the most responsibility (R, 0 to 1), it falls by about **43 points** (CI −63 to −22, p < 0.001). Each estimate holds the other factor at its average. Together they explain **59%** of the variation in GP (R² = 0.59, Holm p < 0.001). The S × R interaction was not significant (p = 0.35), so the effects simply add up.
+**3.2 Main result (H1).** From the least to the most stable income (S, 0 to 1), the gamble rate rises by about **63 percentage points** (95% CI 36 to 91, p < 0.001). From the least to the most responsibility (R, 0 to 1), it falls by about **43 points** (CI −63 to −22, p < 0.001). Each estimate holds the other factor at its average. Together they explain **59%** of the variation in GP (R² = 0.59, Holm p < 0.001). The S × R interaction was not significant (p = 0.35), so the effects simply add up. Using S_raw instead of the capped S barely changes the figures (S +63, R −42 points) and does not affect our results; the most notable change is R², from 0.59 to 0.55.
 
 **3.3 Four groups.**
 
@@ -57,13 +56,13 @@ Three headline tests, Holm-corrected: **H1**, GP on S, R and their interaction (
 | Committed IT pros (high S, high R) | 10 | 0.78 | 0.78 | 0.66 | 51.4 | 5.6 |
 | Working students (low S, high R) | 10 | 0.42 | 0.56 | 0.62 | 27.9 | 0.0 |
 
-*Table 2. Groups are set by S and R, not job title: one IT professional (S = 0.40) is in "Working students", so sizes differ from the 22/20 split. Two working students never gambled, so their AS is undefined (n = 8 for that median).*
+*Table 2. Groups follow S and R, not job title: one IT professional (S = 0.40) is in "Working students". Two working students never gambled, so their AS is undefined.*
 
-**3.4 Is it just IT professionals vs students?** With the uncapped S_raw, the main model barely moves (S +63, R −42 points, R² = 0.55). Adding cohort as a control, R stays strongly negative (−54, p < 0.001) and S_raw is positive but borderline (+32, p = 0.066). Within each cohort, the Spearman correlations with GP are +0.66 (S_raw) and −0.79 (R) for IT professionals, and +0.44 and −0.52 for students. R holds up everywhere; S points the same way but is weaker.
+**3.4 Is it just IT professionals vs students?** With S_raw and cohort added as a control, R stays strongly negative (−54, Holm p < 0.001) and S_raw is positive but borderline (+32, Holm p = 0.066). Within each cohort, the Spearman correlations with GP are +0.66 (S_raw) and −0.79 (R) for IT professionals, and +0.44 and −0.52 for students (all four Holm p < 0.05). R holds up everywhere; S points the same way but is weaker.
 
-**3.5 Gambling when the gamble was worse.** On Days 3, 6 and 12 the sure option had the higher expected value. IT professionals still gambled on **58%** of these choices (35 of 60) and students on **30%** (20 of 66; p = 0.02, uncorrected). More responsibility went with fewer such gambles (Spearman ρ = −0.52, p < 0.001).
+**3.5 Gambling when the gamble was worse.** On Days 3, 6 and 12 the sure option had the higher expected value. IT professionals still gambled on **58%** of these choices (35 of 60) and students on **30%** (20 of 66; Holm p = 0.04). More responsibility went with fewer such gambles (Spearman ρ = −0.52, Holm p = 0.001).
 
-**3.6 Hidden odds (H2).** Most people avoided hidden odds: the median AS was **23.6** (n = 40, p < 0.001 against 50). The medians were 31.7 for IT professionals and 20.0 for students, but the gap is not significant (p = 0.21, Holm p = 0.41). On Day 5, those who chose the hidden urn had a median belief of 75 (out of 100) tokens matching their colour, against 50 for the rest (p = 0.005).
+**3.6 Hidden odds (H2).** Most people avoided hidden odds: the median AS was **23.6** (n = 40, Holm p < 0.001 against 50). The medians were 31.7 for IT professionals and 20.0 for students, but the gap is not significant (p = 0.21, Holm p = 0.41). On Day 5, those who chose the hidden urn had a median belief of 75 (out of 100) tokens matching their colour, against 50 for the rest (Holm p = 0.009).
 
 **3.7 Market crash (H3).** IT professionals: 2 sold, 8 held, 10 bought more. Students: 6, 8 and 8. The difference is not significant (exact p = 0.43, Cramér's V = 0.23).
 
@@ -77,15 +76,14 @@ Three headline tests, Holm-corrected: **H1**, GP on S, R and their interaction (
 
 *Table 3. Power analysis. "Smallest effect" is what this sample detects 80% of the time.*
 
-The main result is well above what 42 people can detect. The IT-versus-student gaps are below it, so those results are inconclusive, not proof of no difference.
+The main result is well above what 42 people can detect. The IT-versus-student gaps are not, so they are inconclusive.
 
 ## 4. Limitations
 
 - **Small, self-selected sample.** 42 volunteers can only reveal large effects. The cohorts also differ in age, gender mix and investing experience, so cohort effects are mixed up with these.
 - **Play money.** Credits were not paid out and no outcome was shown, so real decisions may differ.
 - **Our choices.** S and R weight their parts equally, and the cut-offs (S > 0.5, R ≥ 0.35), the student cap and the one-dependent rule are ours.<!-- - **Understanding and data quality.** 17 of 42 participants misanswered at least one comprehension question (13 on C1); the game reminded them and continued. We made no exclusions beyond the test run: 5 reported zero income, 1 entered a negative number of dependents (scored as none), 6 switched back from Y to X on the Holt–Laury list, 3 chose X on the final row, and 5 had a median response time under 3 s. The first seven responses (29–30 October) came before the 12-month wording of S2 and S3 was committed; all but one reported no income gaps, and that one is a capped student, so no group changes.-->
-- **Position effect.** The middle option was picked more often (241 of 630 choices vs 204 top and 185 bottom; p = 0.02), despite shuffling.
-- **Exploratory tests.** The robustness and expected-value checks are not Holm-corrected.
+- **Position effect.** The middle option was picked more often (241 of 630 choices vs 204 top and 185 bottom; Holm p = 0.02), despite shuffling.
 
 ## 5. Conclusion
 
