@@ -39,6 +39,9 @@ QUADRANT_PALETTE = {
 # 1. SCORING & QUADRANT PIPELINE
 # ==========================================
 
+STUDENT_S_SCALE = 0.5  # student S = 0.5 x S_raw, so students never exceed the High-S cut-off
+
+
 def compute_intake_scores(df):
     """
     Computes S and R, and assigns the 4 theoretical (S, R) Quadrants.
@@ -52,10 +55,12 @@ def compute_intake_scores(df):
     raw_s = (df["P"] + df["D"] + df["Buffer"]) / 3.0
     df["S_raw"] = raw_s
 
-    # Cap S for students at 0.50 to reflect the transitory/non-career nature of student
-    # income (stipends/allowances) and prevent misclassification into "High S, Low R (Unburdened IT)".
+    # Scale student S by 0.5 (S = 0.5 x S_raw) to reflect the transitory/non-career nature of student
+    # income (stipends/allowances) and keep students out of "High S". This replaces the earlier hard cap
+    # (S = min(S_raw, 0.5)), which set 16 of 22 students to exactly 0.5 and erased their differences;
+    # scaling keeps every student at or below 0.5 while preserving their order (raised at the presentation).
     is_student = df["Cohort"].astype(str).str.strip().str.lower().str.contains("student")
-    df["S"] = np.where(is_student, np.minimum(raw_s, 0.5), raw_s)
+    df["S"] = np.where(is_student, STUDENT_S_SCALE * raw_s, raw_s)
 
     # R: Financial Responsibility
     # Any dependent is a binding obligation: 1 -> 0.70, 2 -> 0.85, 3+ -> 1.0.
@@ -69,7 +74,7 @@ def compute_intake_scores(df):
     df["FL_Score"] = (df["FL1"] == 1).astype(int) + (df["FL2"] == 1).astype(int) + (df["FL3"] == 1).astype(int)
     
     # Assign (S, R) Quadrants cleanly
-    # High S means S above 0.5. Strictly above, because students are capped at exactly 0.5.
+    # High S means S above 0.5. Strictly above, because a student with S_raw = 1 scales to exactly 0.5.
     s_threshold = 0.5
     r_threshold = 0.35
     high_s = df["S"] > s_threshold
@@ -431,7 +436,8 @@ def plot_fig2_ambiguity_share(df, filename="fig2_ambiguity_share.png", show_stat
     order = list(QUADRANT_PALETTE.keys())
     
     sns.boxplot(data=clean_df, x="SR_Quadrant", y="AS", order=order, palette=QUADRANT_PALETTE,
-                hue="SR_Quadrant", legend=False, width=0.45, boxprops=dict(alpha=0.75), ax=ax)
+                hue="SR_Quadrant", legend=False, width=0.45, boxprops=dict(alpha=0.75),
+                showfliers=False, ax=ax)  # every point is already drawn by the stripplot below
     sns.stripplot(data=clean_df, x="SR_Quadrant", y="AS", order=order, color="black", 
                   alpha=0.45, jitter=0.2, s=6, ax=ax)
     
@@ -648,8 +654,8 @@ def simulate_v2_data(n=120):
         b_back_val = s4
         buffer_val = 1.0 - (1.0 - b_own_val) * (1.0 - b_back_val)
         raw_s_indiv = (p_comp + d_comp + buffer_val) / 3.0
-        # Cap S for students at 0.50 to reflect non-career income stability
-        s_indiv = min(raw_s_indiv, 0.5) if c == "Student" else raw_s_indiv
+        # Scale student S by 0.5 to reflect non-career income stability (see compute_intake_scores)
+        s_indiv = STUDENT_S_SCALE * raw_s_indiv if c == "Student" else raw_s_indiv
         
         dep_val = min(1.0, 0.7 + 0.15 * (r1 - 1)) if r1 > 0 else 0.0
         cash_ratio_val = min(1.0, (r3 + r4) / max(1.0, r2))
@@ -887,7 +893,7 @@ def run_hypothesis_tests(df):
     sr = df["S_raw"] - df["S_raw"].mean()
     rob, rob_r2, _ = ols(y, np.column_stack([np.ones(len(df)), sr, r, sr * r, is_it(df)]),
                          ["Intercept", "S_raw", "R", "S_raw x R", "IT (vs Student)"])
-    print(f"  (a) GP ~ S_raw + R + S_raw x R + cohort (uncapped S, cohort controlled): R^2 = {rob_r2:.2f}")
+    print(f"  (a) GP ~ S_raw + R + S_raw x R + cohort (unscaled S, cohort controlled): R^2 = {rob_r2:.2f}")
     print_table(rob)
     for cohort in ["IT Professional", "Student"]:
         sub = df[df["Cohort"] == cohort]
@@ -1143,7 +1149,7 @@ if __name__ == "__main__":
         hl_m = sub["HL_Safe_Count"].mean()
         print(f"{quad:<34} | {len(sub):<3} | {s_m:<8.2f} | {sraw_m:<6.2f} | {r_m:<8.2f} | {gp_m:<13.1f} | {as_m:<12.1f} | {hl_m:<18.2f}")
     print("-------------------------------------------------------------------------------------------------")
-    print("NOTE: S caps students at 0.50 (questionnaire_2.md, Section 2B); S_raw is the uncapped score.")
+    print("NOTE: student S = 0.5 x S_raw (replaces the earlier cap at 0.50, questionnaire_2.md Section 2B); S_raw is unscaled.")
     print("NOTE: 'GP' is Gamble Propensity (Higher = More Gambling). Expected: Q2 > Q1 >= Q3 > Q4")
     print("NOTE: 'HL Safe' is Holt-Laury Safe Choices (Higher = MORE RISK AVERSE = Less Gambling).")
     

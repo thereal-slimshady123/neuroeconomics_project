@@ -1,0 +1,265 @@
+\documentclass[10pt,a4paper]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage[margin=2cm]{geometry}
+\usepackage{float}
+\usepackage{titlesec}
+\titlespacing*{\section}{0pt}{10pt plus 2pt}{4pt}
+\titlespacing*{\subsection}{0pt}{8pt plus 2pt}{2pt}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{enumitem}
+\usepackage[font=small,labelfont=bf]{caption}
+\usepackage{microtype}
+\usepackage[hidelinks]{hyperref}
+
+\setlist{itemsep=2pt,topsep=4pt}
+\setlength{\parskip}{4pt}
+\setlength{\textfloatsep}{10pt}
+\setlength{\floatsep}{8pt}
+\setlength{\intextsep}{8pt}
+\renewcommand{\topfraction}{0.9}
+\renewcommand{\bottomfraction}{0.6}
+\renewcommand{\textfraction}{0.1}
+\renewcommand{\floatpagefraction}{0.8}
+\setlength{\parindent}{0pt}
+\newcommand{\Sraw}{S_{\text{raw}}}
+
+\title{\textbf{15 Days to Payday}\\[2pt]\large Does Your Money Situation Change How Much Risk You Take?}
+\author{Parth Dhodapkar \and Joshua Koilpillai\\[2pt]\small Neuroeconomics project report}
+\date{}
+
+\begin{document}
+\maketitle
+\vspace{-2em}
+
+%-------------------------------------------------------------------
+\section{Research question}
+
+Does a person's real-life money situation explain how much financial risk they take? We looked at two things: \textbf{S}, income stability (how steady income is and how much backup there is), and \textbf{R}, money responsibility (how much income is already committed to dependents, living costs and debt). We expected stable income to make people bolder and heavy obligations to make them more careful. We also compared IT professionals and students on hidden odds, building on Ellsberg's finding that people avoid unknown odds \cite{ellsberg}, and on reactions to a market crash.
+
+%-------------------------------------------------------------------
+\section{Methodology}
+
+\subsection{Participants}
+
+A web game saved each response to a Google Sheet. We got 42 complete responses: \textbf{22 students and 20 IT professionals} (Table~\ref{tab:participants}).
+
+\begin{table}[H]
+\centering\small
+\begin{tabular}{lll}
+\toprule
+ & Students ($n=22$) & IT professionals ($n=20$) \\
+\midrule
+Age, mean (range) & 20.0 (18--23) & 33.6 (21--59) \\
+Gender & 18 male, 2 female, 2 other/undisclosed & 12 female, 8 male \\
+No investing experience & 13 & 1 \\
+\bottomrule
+\end{tabular}
+\caption{Participant characteristics.}
+\label{tab:participants}
+\end{table}
+
+\subsection{The game}
+
+After consent, participants filled in a profile (demographics, financial literacy, the S and R questions, comprehension and attention checks), did a 10-row Holt--Laury risk test \cite{holtlaury} (safe choices counted: 4 is risk-neutral, more is risk-averse), played 15 ``days'' and answered a short reflection.
+
+\begin{itemize}
+\item \textbf{Daily decisions.} Each day offers \textbf{A}, a sure amount; \textbf{B}, a gamble with stated odds; or \textbf{C}, the \emph{same prizes as B} with the odds hidden. The order is random, days are independent, and no outcomes are shown.
+\item \textbf{Design.} The gamble beats the sure option on average on seven days, ties on four and loses on three (Days 3, 6, 12). Days 7, 10 and 13 are framed as losses, following prospect theory \cite{kt}. Day 5 is an Ellsberg urn pair and Day 8 is a 40\% market crash (sell, hold or buy more). Four days also asked for the person's estimated chance in the hidden option.
+\end{itemize}
+
+\subsection{Measures}
+
+\textbf{Income stability} $S \in [0,1]$ averages three parts:
+\[
+S_{\text{raw}} = \frac{1}{3}\left[\underbrace{\frac{S_1-1}{4}}_{\text{predictability}}
++ \underbrace{1-\frac{S_2}{12}}_{\text{no big drops}}
++ \underbrace{1-\Bigl(1-\min\bigl(1,\tfrac{S_3}{12}\bigr)\Bigr)(1-S_4)}_{\text{safety net}}\right]
+\]
+where $S_1$ is income predictability (1--5), $S_2$ the months in the last 12 that income fell by over 20\%, $S_3$ the months savings would last, and $S_4$ family help (0, 0.5 or 1).
+
+\textbf{Money responsibility} $R \in [0,1]$ averages two parts:
+\[
+R = \frac{1}{2}\left[\underbrace{\begin{cases}0 & R_1 = 0\\ \min\bigl(1,\,0.70+0.15(R_1-1)\bigr) & R_1 \ge 1\end{cases}}_{\text{dependents}}
++ \underbrace{\min\Bigl(1,\,\frac{\text{fixed costs}+\text{debt}}{\text{income}}\Bigr)}_{\text{spoken for}}\right]
+\]
+where $R_1$ is the number of dependents. One dependent alone gives $R \ge 0.35$, which we treat as high R.
+
+\textbf{Student scaling.} Student S is halved: $S = 0.5 \times \Sraw$. Student income (allowances, stipends) is not a stable career income, and without an adjustment 16 of 22 students would score above 0.5 and be classed as high S alongside IT professionals. Scaling keeps every student at or below 0.5 while keeping their order. This replaces the cap used in the presentation (Section~\ref{sec:fix}).
+
+\textbf{Groups and behaviour.} We split people at $S>0.5$ and $R \ge 0.35$ into four groups. \emph{Gamble propensity} (GP) is the share of the 14 standard days (Day 8 excluded) on which B or C was chosen:
+\[
+\text{GP} = 100 \times \frac{\#B + \#C}{14}, \qquad
+\text{AS} = 100 \times \frac{\#C}{\#B + \#C}.
+\]
+The \emph{hidden-odds share} (AS) is the share of gambles that used hidden odds; 50 means no preference between known and hidden odds.
+
+\subsection{Analysis}
+
+Three headline tests, Holm-corrected \cite{holm}: \textbf{H1}, GP on S, R and their interaction (OLS, centred predictors, overall $F$ test); \textbf{H2}, IT professionals vs students on AS (Mann--Whitney $U$, with Cliff's $\delta$); \textbf{H3}, Day 8 reaction by cohort (Fisher--Freeman--Halton exact test, with Cram\'er's $V$). Secondary checks are Holm-corrected within each family of related tests. Correcting all 20 together would keep the R and hidden-odds results significant, but not the IT-versus-student gambling gap or student-only correlations. We also ran a power analysis (80\% power, $\alpha = 0.05$) \cite{cohen}.
+
+%-------------------------------------------------------------------
+\section{Results}
+
+\subsection{Validity}
+People who made more safe Holt--Laury choices gambled less in the game (Pearson $\mathbf{r = -0.46}$, $p = 0.002$, Holm $p = 0.006$). This meets our $r < -0.30$ benchmark but not the $p < 0.001$ requirement that we had set beforehand. All 42 passed the attention check, and the median ``treated credits like real money'' rating was 4 of 5.
+
+\subsection{Main result (H1)}
+From the least to the most stable income (S, 0 to 1), the gamble rate rises by about \textbf{52 percentage points} (95\% CI 31 to 72, $p<0.001$). From the least to the most responsibility (R, 0 to 1), it falls by about \textbf{48 points} (CI $-67$ to $-28$, $p<0.001$). Each estimate holds the other factor at its average. Together they explain \textbf{61\%} of the variation in GP ($R^2 = 0.61$, Holm $p<0.001$). The $S \times R$ interaction was not significant ($p = 0.73$), so the effects simply add up. Using $\Sraw$ with no student adjustment gives the same conclusion (S $+63$, R $-42$ points, both $p<0.001$), with a lower $R^2$ of 0.55. Figure~\ref{fig:landscape} shows the pattern.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.62\textwidth]{plots/fig1_sr_landscape.png}
+\caption{Each participant's S and R, coloured by gamble rate (red = gambled more). Dashed lines mark the group cut-offs; the dark line is where the fitted gamble rate is 50\%.}
+\label{fig:landscape}
+\end{figure}
+
+\subsection{Four groups}
+Table~\ref{tab:groups} shows the four groups. Gambling falls steadily from the high-S, low-R group to the low-S, high-R group.
+
+\begin{table}[!htb]
+\centering\small
+\begin{tabular}{lccccccc}
+\toprule
+Group (S, R) & $n$ & S (scaled) & $\Sraw$ & R & GP \% & Median AS \\
+\midrule
+Unburdened IT pros (high S, low R) & 9 & 0.96 & 0.96 & 0.04 & 96.0 & 42.9 \\
+Supported students (low S, low R) & 13 & 0.34 & 0.67 & 0.08 & 61.5 & 22.2 \\
+Committed IT pros (high S, high R) & 10 & 0.78 & 0.78 & 0.66 & 51.4 & 5.6 \\
+Working students (low S, high R) & 10 & 0.30 & 0.56 & 0.62 & 27.9 & 0.0 \\
+\bottomrule
+\end{tabular}
+\caption{Group means. Groups follow S and R, not job title: one IT professional ($S = 0.40$) is in ``Working students''. Two working students never gambled, so their AS is undefined; they are excluded from the statistical tests ($n = 40$) and shown at 0 in Figure~\ref{fig:as}. The group median is 0.0 either way.}
+\label{tab:groups}
+\end{table}
+
+\subsection{Is it just IT professionals vs students?}
+With $\Sraw$ and cohort added as a control, R stays strongly negative ($-54$, Holm $p<0.001$) and $\Sraw$ is positive but borderline ($+32$, Holm $p = 0.066$). Within each cohort, the Spearman correlations with GP are $+0.66$ ($\Sraw$) and $-0.79$ (R) for IT professionals, and $+0.44$ and $-0.52$ for students (all four Holm $p<0.05$). R holds up everywhere; S points the same way but is weaker.
+
+\subsection{Gambling when the gamble was worse}
+On Days 3, 6 and 12 the sure option had the higher expected value. IT professionals still gambled on \textbf{58\%} of these choices (35 of 60) and students on \textbf{30\%} (20 of 66; Holm $p = 0.04$). More responsibility went with fewer such gambles (Spearman $\rho = -0.52$, Holm $p = 0.001$).
+
+\subsection{Hidden odds (H2)}
+Most people avoided hidden odds: the median AS was \textbf{23.6} ($n = 40$, Holm $p<0.001$ against 50), replicating Ellsberg \cite{ellsberg}. The medians were 31.7 for IT professionals and 20.0 for students, but the gap is not significant ($p = 0.21$, Holm $p = 0.41$, Cliff's $\delta = +0.23$). On Day 5, those who chose the hidden urn had a median belief of 75 (out of 100) tokens matching their colour, against 50 for the rest (Holm $p = 0.009$).
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.57\textwidth]{plots/fig2_ambiguity_share.png}
+\caption{Hidden-odds share by group. Values below the dashed line (50) mean hidden odds were avoided. Each dot is one participant.}
+\label{fig:as}
+\end{figure}
+
+\subsection{Market crash (H3)}
+IT professionals: 2 sold, 8 held, 10 bought more. Students: 6, 8 and 8. The difference is not significant (exact $p = 0.43$, Cram\'er's $V = 0.23$).
+
+\subsection{Was 42 people enough?}
+
+\begin{table}[H]
+\centering\small
+\begin{tabular}{lcccc}
+\toprule
+Test & People needed & Smallest effect & What we & Verdict \\
+ & (medium effect) & we can detect & found & \\
+\midrule
+S and R $\rightarrow$ gambling & 77 & $f^2 = 0.29$ & $f^2 = 1.54$ & Enough \\
+IT vs students: hidden odds & 67 per group & $d = 0.91$ & $d = 0.42$ & Too few \\
+IT vs students: crash & 108 & $w = 0.48$ & $w = 0.23$ & Too few \\
+\bottomrule
+\end{tabular}
+\caption{Power analysis. ``Smallest effect'' is what this sample detects 80\% of the time.}
+\label{tab:power}
+\end{table}
+
+The main result is well above what 42 people can detect. The IT-versus-student gaps are not, so they are inconclusive.
+
+\subsection{Change after the presentation: scaling instead of capping student S}
+\label{sec:fix}
+The presentation used a hard cap (student $S = \min(\Sraw, 0.5)$). As raised in the presentation, the cap discarded information we had collected about the students themselves (for example, one student may find their income stable enough for their needs while another does not): it set 16 of 22 students to exactly 0.5, leaving only four distinct S values among them. We replaced it with scaling ($S = 0.5 \times \Sraw$), which keeps their order, and re-ran every analysis (Table~\ref{tab:fix}).
+
+\begin{table}[H]
+\centering\small
+\begin{tabular}{llll}
+\toprule
+ & Before (cap) & After (scaling) & Verdict changed? \\
+\midrule
+H1: S effect & $+63$ ($p<0.001$) & $+52$ ($p<0.001$) & No, supported \\
+H1: R effect & $-43$ ($p<0.001$) & $-48$ ($p<0.001$) & No, supported \\
+H1: $S \times R$ & $p = 0.35$ & $p = 0.73$ & No, not significant \\
+H1: $R^2$, Holm $p$ & 0.59, $p<0.001$ & 0.61, $p<0.001$ & No, supported \\
+H2: hidden odds & Holm $p = 0.41$ & Holm $p = 0.41$ & No (does not use S) \\
+H3: crash & $p = 0.43$ & $p = 0.43$ & No (does not use S) \\
+Four groups & 13 / 9 / 10 / 10 & 13 / 9 / 10 / 10 & No one changes group \\
+Power (H1) & $f^2 = 1.44$, enough & $f^2 = 1.54$, enough & No \\
+\bottomrule
+\end{tabular}
+\caption{Results with the original cap and the revised scaling.}
+\label{tab:fix}
+\end{table}
+
+\textbf{Implementing the fix changes no verdict.} H1 is slightly stronger and everything else is identical. The S and R effects also stay significant under 12 alternative and 2,000 random weightings of their parts.
+\subsection{Summary of hypotheses}
+
+\begin{table}[H]
+\centering\small
+\begin{tabular}{ll}
+\toprule
+Hypothesis & Verdict \\
+\midrule
+\textbf{H1.} S and R predict how often people gamble & \textbf{Supported} \\
+\textbf{H2.} IT professionals and students differ on hidden odds & Not supported (inconclusive) \\
+\textbf{H3.} IT professionals and students react differently to the crash & Not supported (inconclusive) \\
+\bottomrule
+\end{tabular}
+\caption{Final verdicts ($\alpha = 0.05$, Holm-corrected). ``Inconclusive'': the sample was too small to detect a difference of the size observed (Table~\ref{tab:power}).}
+\label{tab:verdicts}
+\end{table}
+
+%-------------------------------------------------------------------
+\section{Links to existing theory}
+
+Our results fit with these ideas, but since we did not run an experiment, they are possible explanations, not proof.
+
+\begin{itemize}
+\item \textbf{Risk aversion (H1).} People with a safety cushion can afford to lose, so they take more risk; people who already carry a risk they can't avoid take fewer new ones \cite{gollier}. This matches H1: steady income went with more gambling, and responsibilities went with less. Money worries also use up mental energy \cite{mani}, which may push busy, stretched people toward the safe option.
+\item \textbf{Prospect theory (loss days, crash).} Prospect theory says people gamble more to avoid a loss \cite{kt}. We did not see this: people gambled about as often on loss days as on gain days ($p = 0.75$). In the crash, only 8 of 42 sold, which fits the habit of holding on to losing investments \cite{shefrin}.
+\item \textbf{Ambiguity aversion (H2, Day 5).} Like Ellsberg \cite{ellsberg}, most people avoided hidden odds (median 24, against 50 for no preference). This avoidance was weaker on loss days ($p = 0.015$), as other studies have found \cite{kocher}. People who picked the hidden urn on Day 5 believed it was in their favour (75 vs 50), which fits the idea that people accept unknown odds when they feel confident \cite{heath}.
+\end{itemize}
+
+%-------------------------------------------------------------------
+\section{Limitations}
+
+\begin{itemize}
+\item \textbf{Small, self-selected sample.} 42 volunteers can only reveal large effects. The cohorts also differ in age, gender mix and investing experience, so cohort effects are mixed up with these.
+\item \textbf{Correlational design.} We measured people's real situations rather than assigning them, so S and R are \emph{associated} with risk taking; we cannot say they cause it.
+\item \textbf{Play money.} Credits were not paid out and no outcome was shown, so real decisions may differ.
+\item \textbf{Our choices.} S and R weight their parts equally, and the cut-offs ($S>0.5$, $R \ge 0.35$), the student scaling (formerly a cap) and the one-dependent rule are ours.
+\item \textbf{Position effect.} The middle option was picked more often (241 of 630 choices vs 204 top and 185 bottom; Holm $p = 0.02$), despite shuffling.
+\end{itemize}
+
+%-------------------------------------------------------------------
+\section{Conclusion}
+
+Stable income went with more gambling and heavier obligations with less, together explaining about 61\% of the differences between people. The responsibility effect was the sturdier one. Whether IT professionals and students differ on hidden odds and crash reaction needs about 67 people per group or more.
+
+%-------------------------------------------------------------------
+\begin{thebibliography}{99}
+\footnotesize\setlength{\itemsep}{0pt}
+\bibitem{cohen} Cohen, J. (1988). \emph{Statistical Power Analysis for the Behavioral Sciences} (2nd ed.). Lawrence Erlbaum.
+\bibitem{ellsberg} Ellsberg, D. (1961). Risk, ambiguity, and the Savage axioms. \emph{Quarterly Journal of Economics}, 75(4), 643--669.
+\bibitem{gollier} Gollier, C., \& Pratt, J.\,W. (1996). Risk vulnerability and the tempering effect of background risk. \emph{Econometrica}, 64(5), 1109--1123.
+\bibitem{heath} Heath, C., \& Tversky, A. (1991). Preference and belief: Ambiguity and competence in choice under uncertainty. \emph{Journal of Risk and Uncertainty}, 4(1), 5--28.
+\bibitem{holm} Holm, S. (1979). A simple sequentially rejective multiple test procedure. \emph{Scandinavian Journal of Statistics}, 6(2), 65--70.
+\bibitem{holtlaury} Holt, C.\,A., \& Laury, S.\,K. (2002). Risk aversion and incentive effects. \emph{American Economic Review}, 92(5), 1644--1655.
+\bibitem{hsu} Hsu, M., Bhatt, M., Adolphs, R., Tranel, D., \& Camerer, C.\,F. (2005). Neural systems responding to degrees of uncertainty in human decision-making. \emph{Science}, 310(5754), 1680--1683.
+\bibitem{kt} Kahneman, D., \& Tversky, A. (1979). Prospect theory: An analysis of decision under risk. \emph{Econometrica}, 47(2), 263--291.
+\bibitem{kocher} Kocher, M.\,G., Lahno, A.\,M., \& Trautmann, S.\,T. (2018). Ambiguity aversion is not universal. \emph{European Economic Review}, 101, 268--283.
+\bibitem{mani} Mani, A., Mullainathan, S., Shafir, E., \& Zhao, J. (2013). Poverty impedes cognitive function. \emph{Science}, 341(6149), 976--980.
+\bibitem{shefrin} Shefrin, H., \& Statman, M. (1985). The disposition to sell winners too early and ride losers too long. \emph{Journal of Finance}, 40(3), 777--790.
+\end{thebibliography}
+
+\end{document}
