@@ -29,8 +29,8 @@
 \setlength{\parindent}{0pt}
 \newcommand{\Sraw}{S_{\text{raw}}}
 
-\title{\textbf{15 Days to Payday}\\[2pt]\large Does Your Money Situation Change How Much Risk You Take?}
-\author{Parth Dhodapkar \and Joshua Koilpillai\\[2pt]\small Neuroeconomics project report}
+\title{\textbf{15 Days to Payday: Neuroeconomics Project Report}\\[2pt]\large Does Your Money Situation Change How Much Risk You Take?}
+\author{Parth Dhodapkar\\\small 2024111009 \and Joshua Koilpillai\\\small 2024101128}
 \date{}
 
 \begin{document}
@@ -179,7 +179,7 @@ The main result is well above what 42 people can detect. The IT-versus-student g
 
 \subsection{Change after the presentation: scaling instead of capping student S}
 \label{sec:fix}
-The presentation used a hard cap (student $S = \min(\Sraw, 0.5)$). As raised in the presentation, the cap discarded information we had collected about the students themselves (for example, one student may find their income stable enough for their needs while another does not): it set 16 of 22 students to exactly 0.5, leaving only four distinct S values among them. We replaced it with scaling ($S = 0.5 \times \Sraw$), which keeps their order, and re-ran every analysis (Table~\ref{tab:fix}).
+The presentation used a hard cap (student $S = \min(\Sraw, 0.5)$). As raised in the presentation, the cap discarded information we had collected about the students themselves (for example, one student may find their income stable enough for their needs while another does not): it set 16 of 22 students to exactly 0.5, leaving only four distinct S values among them. Even at the time, the cap made little difference: using $\Sraw$ instead of the capped S left the S and R effects almost unchanged ($+63$ and $-42$, against $+63$ and $-43$) and lowered $R^2$ by only 0.04 (0.59 to 0.55), which changed none of our results. We still wanted an adjusted S that reflects the gap between how stable students feel their income is and how stable it actually is, so we replaced the cap with scaling ($S = 0.5 \times \Sraw$), which keeps their order, and re-ran every analysis (Table~\ref{tab:fix}).
 
 \begin{table}[H]
 \centering\small
@@ -255,7 +255,6 @@ Stable income went with more gambling and heavier obligations with less, togethe
 \bibitem{heath} Heath, C., \& Tversky, A. (1991). Preference and belief: Ambiguity and competence in choice under uncertainty. \emph{Journal of Risk and Uncertainty}, 4(1), 5--28.
 \bibitem{holm} Holm, S. (1979). A simple sequentially rejective multiple test procedure. \emph{Scandinavian Journal of Statistics}, 6(2), 65--70.
 \bibitem{holtlaury} Holt, C.\,A., \& Laury, S.\,K. (2002). Risk aversion and incentive effects. \emph{American Economic Review}, 92(5), 1644--1655.
-\bibitem{hsu} Hsu, M., Bhatt, M., Adolphs, R., Tranel, D., \& Camerer, C.\,F. (2005). Neural systems responding to degrees of uncertainty in human decision-making. \emph{Science}, 310(5754), 1680--1683.
 \bibitem{kt} Kahneman, D., \& Tversky, A. (1979). Prospect theory: An analysis of decision under risk. \emph{Econometrica}, 47(2), 263--291.
 \bibitem{kocher} Kocher, M.\,G., Lahno, A.\,M., \& Trautmann, S.\,T. (2018). Ambiguity aversion is not universal. \emph{European Economic Review}, 101, 268--283.
 \bibitem{mani} Mani, A., Mullainathan, S., Shafir, E., \& Zhao, J. (2013). Poverty impedes cognitive function. \emph{Science}, 341(6149), 976--980.
